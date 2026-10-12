@@ -3,6 +3,7 @@ import pandas as pd
 import sqlite3
 import json
 import io
+import os
 from datetime import datetime
 
 # Configuración visual para pantallas móviles y de escritorio
@@ -134,8 +135,26 @@ pestana_evaluar, pestana_admin = st.tabs(["📝 Formulario de Calificación", "�
 # --- PESTAÑA EVALUADOR ---
 # =============================================================
 with pestana_evaluar:
-    st.title("Defensa de Proyecto Integrador")
-    st.subheader("Curso de Especialización en Análisis Criminal")
+    # BANNER INSTITUCIONAL
+    banner_candidatos = [
+        "banner.jpeg",
+        "banner.jpg",
+        "banner.png",
+        "Banner - II Curso de Esp Ana Criminal.jpeg"
+    ]
+    banner_encontrado = None
+    for b in banner_candidatos:
+        if os.path.exists(b):
+            banner_encontrado = b
+            break
+            
+    if banner_encontrado:
+        st.image(banner_encontrado, use_container_width=True)
+    else:
+        st.title("Defensa de Proyecto Integrador")
+        st.subheader("II Curso de Especialización en Análisis Criminal")
+        
+    st.markdown("<h3 style='text-align: center; margin-top: 10px; margin-bottom: 25px;'>Defensa de Proyecto Integrador</h3>", unsafe_allow_html=True)
     
     paralelo_sel = st.selectbox(
         "Seleccione el Paralelo:",
