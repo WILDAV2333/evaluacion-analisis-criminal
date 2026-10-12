@@ -52,7 +52,7 @@ def get_db():
             nombre TEXT
         )
     """)
-    # Tabla para grupos y sus alumnos (en formato JSON dinámico)
+    # Tabla para grupos y alumnos en formato JSON
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS config_grupos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -286,7 +286,7 @@ with pestana_admin:
     if password == "AdminPolicial2026":
         tabs_admin = st.tabs(["📊 Consolidado de Notas", "⚙️ Gestión de Docentes y Grupos"])
         
-        # SUB-PESTAÑA 1: CONSOLIDADO Y DESCARGA
+        # SUB-PESTAÑA 1: CONSOLIDADO, DESCARGA Y VACIADO DE PRUEBAS
         with tabs_admin[0]:
             df = pd.read_sql_query("SELECT * FROM evaluaciones", conn)
             if df.empty:
@@ -321,6 +321,18 @@ with pestana_admin:
                     )
                 else:
                     st.info(f"No hay registros aún para {filtro_admin}.")
+            
+            # --- ZONA DE MANTENIMIENTO: BORRAR PRUEBAS ---
+            st.divider()
+            with st.expander("⚠️ Zona de Mantenimiento: Vaciar Evaluaciones de Prueba"):
+                st.warning("Esta acción eliminará únicamente las calificaciones registradas. No afectará a los evaluadores ni a los grupos configurados.")
+                confirmar = st.checkbox("Confirmo que deseo borrar todas las calificaciones de prueba registradas.")
+                if st.button("🗑️ Borrar Todas las Calificaciones", disabled=not confirmar):
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM evaluaciones")
+                    conn.commit()
+                    st.success("✅ Base de datos de calificaciones reiniciada a cero.")
+                    st.rerun()
                     
         # SUB-PESTAÑA 2: GESTIÓN DE DOCENTES, GRUPOS Y CURSANTES DINÁMICOS
         with tabs_admin[1]:
@@ -358,20 +370,19 @@ with pestana_admin:
                 else:
                     st.caption("No hay evaluadores agregados para este paralelo.")
                     
-            # --- Gestión Dinámica de Grupos y Alumnos (4, 5, 6 integrantes) ---
+            # --- Gestión Dinámica de Grupos y Alumnos ---
             with c_grupos:
                 st.markdown(f"#### 2. Grupos y Alumnos ({paralelo_gestionar})")
                 with st.form("form_agregar_grupo", clear_on_submit=True):
                     nom_grupo = st.text_input("Nombre del Grupo y Caso (ej. Grupo 1 - Caso Homicidios):")
                     alumnos_texto = st.text_area(
                         "Integrantes (escriba o pegue un nombre por línea):",
-                        help="Puede ingresar 4, 5, 6 o el número exacto de integrantes para este grupo.",
+                        help="Puede ingresar 4, 5, 6 o la cantidad que tenga este grupo.",
                         placeholder="Sgto. Juan Pérez\nCbos. Carlos Ruiz\nPoli. Ana Gómez\nPoli. Luis Castro"
                     )
                     btn_grupo = st.form_submit_button("➕ Registrar Grupo y Alumnos")
                     
                     if btn_grupo:
-                        # Extraer lista limpiando líneas vacías
                         alumnos_lista = [linea.strip() for linea in alumnos_texto.split("\n") if linea.strip()]
                         if not nom_grupo.strip():
                             st.error("Debe ingresar un nombre para el grupo.")
@@ -395,7 +406,6 @@ with pestana_admin:
                     for g_id, g_nom, g_alums_raw in grps_actuales:
                         alums = json.loads(g_alums_raw)
                         with st.expander(f"📁 {g_nom} ({len(alums)} integrantes)"):
-                            # Edición directa de integrantes dentro del acordeón
                             texto_actual = "\n".join(alums)
                             nuevo_texto_alums = st.text_area(
                                 "Modificar integrantes (un nombre por línea):",
