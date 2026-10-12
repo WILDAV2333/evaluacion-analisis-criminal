@@ -13,11 +13,12 @@ st.set_page_config(
 )
 
 # -------------------------------------------------------------
-# 1. BASE DE DATOS LOCAL
+# 1. BASE DE DATOS LOCAL Y MIGRACIÓN AUTOMÁTICA
 # -------------------------------------------------------------
 def get_db():
     conn = sqlite3.connect("calificaciones_defensa.db", check_same_thread=False)
     cursor = conn.cursor()
+    
     # Tabla de evaluaciones
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS evaluaciones (
@@ -36,6 +37,13 @@ def get_db():
             nota_total REAL
         )
     """)
+    
+    # Migración automática: verificar si la columna 'paralelo' existe en la tabla previa
+    cursor.execute("PRAGMA table_info(evaluaciones)")
+    columnas = [col[1] for col in cursor.fetchall()]
+    if "paralelo" not in columnas:
+        cursor.execute("ALTER TABLE evaluaciones ADD COLUMN paralelo TEXT DEFAULT 'Paralelo A'")
+        
     # Tabla para docentes/evaluadores configurados por el administrador
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS config_docentes (
@@ -44,7 +52,7 @@ def get_db():
             nombre TEXT
         )
     """)
-    # Tabla para grupos y sus 5 alumnos configurados por el administrador
+    # Tabla para grupos y sus alumnos configurados por el administrador
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS config_grupos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -283,6 +291,9 @@ with pestana_admin:
             if df.empty:
                 st.info("No hay evaluaciones registradas hasta el momento.")
             else:
+                if "paralelo" not in df.columns:
+                    df["paralelo"] = "Paralelo A"
+                    
                 filtro_admin = st.selectbox("Filtrar por Paralelo:", ["Todos", "Paralelo A", "Paralelo B"])
                 df_mostrar = df if filtro_admin == "Todos" else df[df["paralelo"] == filtro_admin]
                 
