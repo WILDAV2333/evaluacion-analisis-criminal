@@ -38,13 +38,13 @@ def get_db():
         )
     """)
     
-    # Migración automática: verificar si la columna 'paralelo' existe en la tabla previa
+    # Migración de columna 'paralelo' si la tabla fue creada previamente
     cursor.execute("PRAGMA table_info(evaluaciones)")
     columnas = [col[1] for col in cursor.fetchall()]
     if "paralelo" not in columnas:
         cursor.execute("ALTER TABLE evaluaciones ADD COLUMN paralelo TEXT DEFAULT 'Paralelo A'")
         
-    # Tabla para docentes/evaluadores configurados por el administrador
+    # Tabla para docentes/evaluadores
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS config_docentes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,7 +52,7 @@ def get_db():
             nombre TEXT
         )
     """)
-    # Tabla para grupos y sus alumnos configurados por el administrador
+    # Tabla para grupos y sus alumnos (en formato JSON dinámico)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS config_grupos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -192,8 +192,9 @@ with pestana_evaluar:
         st.divider()
         
         # PARTE 2: SUSTENTACIÓN ORAL (INDIVIDUAL - 12 PUNTOS)
-        st.markdown("### 🗣️ PARTE II: SUSTENTACIÓN ORAL INDIVIDUAL (12 PUNTOS)")
-        st.caption("Obligatorio calificar individualmente a cada uno de los integrantes.")
+        num_alumnos = len(alumnos_activos)
+        st.markdown(f"### 🗣️ PARTE II: SUSTENTACIÓN ORAL INDIVIDUAL (12 PUNTOS) — {num_alumnos} Integrantes")
+        st.caption("Obligatorio calificar individualmente a cada uno de los integrantes del grupo.")
         
         evaluaciones_orales = []
         
@@ -321,7 +322,7 @@ with pestana_admin:
                 else:
                     st.info(f"No hay registros aún para {filtro_admin}.")
                     
-        # SUB-PESTAÑA 2: GESTIÓN DE DOCENTES, GRUPOS Y CURSANTES
+        # SUB-PESTAÑA 2: GESTIÓN DE DOCENTES, GRUPOS Y CURSANTES DINÁMICOS
         with tabs_admin[1]:
             st.markdown("### 👥 Configuración de Nóminas y Tribunales")
             paralelo_gestionar = st.selectbox("Seleccione el Paralelo a configurar:", PARALELOS_DISPONIBLES)
@@ -341,7 +342,7 @@ with pestana_admin:
                         st.success(f"Evaluador agregado: {nuevo_docente.strip()}")
                         st.rerun()
                 
-                # Lista de docentes actuales con opción de eliminar
+                # Lista de docentes actuales
                 cursor = conn.cursor()
                 cursor.execute("SELECT id, nombre FROM config_docentes WHERE paralelo = ?", (paralelo_gestionar,))
                 docs_actuales = cursor.fetchall()
@@ -357,20 +358,21 @@ with pestana_admin:
                 else:
                     st.caption("No hay evaluadores agregados para este paralelo.")
                     
-            # --- Gestión de Grupos y Alumnos ---
+            # --- Gestión Dinámica de Grupos y Alumnos (4, 5, 6 integrantes) ---
             with c_grupos:
                 st.markdown(f"#### 2. Grupos y Alumnos ({paralelo_gestionar})")
                 with st.form("form_agregar_grupo", clear_on_submit=True):
                     nom_grupo = st.text_input("Nombre del Grupo y Caso (ej. Grupo 1 - Caso Homicidios):")
-                    al1 = st.text_input("Integrante 1 (Grado y Nombre):")
-                    al2 = st.text_input("Integrante 2 (Grado y Nombre):")
-                    al3 = st.text_input("Integrante 3 (Grado y Nombre):")
-                    al4 = st.text_input("Integrante 4 (Grado y Nombre):")
-                    al5 = st.text_input("Integrante 5 (Grado y Nombre):")
+                    alumnos_texto = st.text_area(
+                        "Integrantes (escriba o pegue un nombre por línea):",
+                        help="Puede ingresar 4, 5, 6 o el número exacto de integrantes para este grupo.",
+                        placeholder="Sgto. Juan Pérez\nCbos. Carlos Ruiz\nPoli. Ana Gómez\nPoli. Luis Castro"
+                    )
                     btn_grupo = st.form_submit_button("➕ Registrar Grupo y Alumnos")
                     
                     if btn_grupo:
-                        alumnos_lista = [a.strip() for a in [al1, al2, al3, al4, al5] if a.strip()]
+                        # Extraer lista limpiando líneas vacías
+                        alumnos_lista = [linea.strip() for linea in alumnos_texto.split("\n") if linea.strip()]
                         if not nom_grupo.strip():
                             st.error("Debe ingresar un nombre para el grupo.")
                         elif len(alumnos_lista) == 0:
@@ -382,10 +384,10 @@ with pestana_admin:
                                 (paralelo_gestionar, nom_grupo.strip(), json.dumps(alumnos_lista))
                             )
                             conn.commit()
-                            st.success(f"Grupo registrado con {len(alumnos_lista)} integrantes.")
+                            st.success(f"Grupo registrado exitosamente con {len(alumnos_lista)} integrantes.")
                             st.rerun()
                 
-                # Lista de grupos actuales con opción de eliminar
+                # Lista de grupos actuales con edición y eliminación directa
                 cursor.execute("SELECT id, grupo, alumnos_json FROM config_grupos WHERE paralelo = ?", (paralelo_gestionar,))
                 grps_actuales = cursor.fetchall()
                 if grps_actuales:
@@ -393,9 +395,24 @@ with pestana_admin:
                     for g_id, g_nom, g_alums_raw in grps_actuales:
                         alums = json.loads(g_alums_raw)
                         with st.expander(f"📁 {g_nom} ({len(alums)} integrantes)"):
-                            for a in alums:
-                                st.write(f"- {a}")
-                            if st.button("Eliminar Grupo", key=f"del_grp_{g_id}"):
+                            # Edición directa de integrantes dentro del acordeón
+                            texto_actual = "\n".join(alums)
+                            nuevo_texto_alums = st.text_area(
+                                "Modificar integrantes (un nombre por línea):",
+                                value=texto_actual,
+                                key=f"edit_txt_{g_id}"
+                            )
+                            col_guardar, col_borrar = st.columns(2)
+                            if col_guardar.button("💾 Guardar Cambios", key=f"btn_save_{g_id}"):
+                                nueva_lista = [l.strip() for l in nuevo_texto_alums.split("\n") if l.strip()]
+                                cursor.execute(
+                                    "UPDATE config_grupos SET alumnos_json = ? WHERE id = ?",
+                                    (json.dumps(nueva_lista), g_id)
+                                )
+                                conn.commit()
+                                st.success("Integrantes actualizados.")
+                                st.rerun()
+                            if col_borrar.button("🗑️ Eliminar Grupo", key=f"del_grp_{g_id}"):
                                 cursor.execute("DELETE FROM config_grupos WHERE id = ?", (g_id,))
                                 conn.commit()
                                 st.rerun()
