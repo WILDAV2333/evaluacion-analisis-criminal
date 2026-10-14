@@ -21,7 +21,7 @@ def get_db():
     conn = sqlite3.connect("calificaciones_defensa.db", check_same_thread=False)
     cursor = conn.cursor()
     
-    # Tabla de evaluaciones
+    # Tabla de evaluaciones con la nueva estructura
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS evaluaciones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,19 +31,36 @@ def get_db():
             grupo TEXT,
             alumno TEXT,
             nota_escrito REAL,
-            oral_dominio_nivel TEXT,
-            oral_dominio_pts REAL,
+            oral_sustentacion_nivel TEXT,
+            oral_sustentacion_pts REAL,
             oral_interrogatorio_nivel TEXT,
             oral_interrogatorio_pts REAL,
+            oral_estrategico_nivel TEXT,
+            oral_estrategico_pts REAL,
+            oral_diferenciador_nivel TEXT,
+            oral_diferenciador_pts REAL,
             nota_oral REAL,
             nota_total REAL
         )
     """)
     
+    # Migración de columnas por si la tabla ya existía previamente
     cursor.execute("PRAGMA table_info(evaluaciones)")
     columnas = [col[1] for col in cursor.fetchall()]
-    if "paralelo" not in columnas:
-        cursor.execute("ALTER TABLE evaluaciones ADD COLUMN paralelo TEXT DEFAULT 'Paralelo A'")
+    columnas_requeridas = [
+        ("paralelo", "TEXT DEFAULT 'Paralelo A'"),
+        ("oral_sustentacion_nivel", "TEXT"),
+        ("oral_sustentacion_pts", "REAL DEFAULT 0"),
+        ("oral_interrogatorio_nivel", "TEXT"),
+        ("oral_interrogatorio_pts", "REAL DEFAULT 0"),
+        ("oral_estrategico_nivel", "TEXT"),
+        ("oral_estrategico_pts", "REAL DEFAULT 0"),
+        ("oral_diferenciador_nivel", "TEXT"),
+        ("oral_diferenciador_pts", "REAL DEFAULT 0")
+    ]
+    for col_nom, col_tipo in columnas_requeridas:
+        if col_nom not in columnas:
+            cursor.execute(f"ALTER TABLE evaluaciones ADD COLUMN {col_nom} {col_tipo}")
         
     # Tabla para docentes/evaluadores
     cursor.execute("""
@@ -101,29 +118,34 @@ def separar_grado_nombre(cadena_alumno):
     return "S/G", cadena_alumno.strip()
 
 # -------------------------------------------------------------
-# 2. BAREMO EXACTO SEGÚN RÚBRICA
+# 2. BAREMO EXACTO SEGÚN NUEVA RÚBRICA IICEAC (TOTAL 20 PUNTOS)
 # -------------------------------------------------------------
-PUNTOS_CRITERIO = {
-    "1.00": {"Deficiente": 0.25, "Básico": 0.60, "Bueno": 0.80, "Excelente": 1.00},
-    "0.75": {"Deficiente": 0.19, "Básico": 0.45, "Bueno": 0.60, "Excelente": 0.75},
-    "0.50": {"Deficiente": 0.13, "Básico": 0.30, "Bueno": 0.40, "Excelente": 0.50},
-    "6.00": {"Deficiente": 1.50, "Básico": 3.60, "Bueno": 4.80, "Excelente": 6.00}
+PUNTOS_ESCALA = {
+    "1.00": {"Deficiente (25%)": 0.25, "Básico (60%)": 0.60, "Bueno (80%)": 0.80, "Excelente (100%)": 1.00},
+    "1.50": {"Deficiente (25%)": 0.38, "Básico (60%)": 0.90, "Bueno (80%)": 1.20, "Excelente (100%)": 1.50},
+    "3.00": {"Deficiente (25%)": 0.75, "Básico (60%)": 1.80, "Bueno (80%)": 2.40, "Excelente (100%)": 3.00}
 }
 
+# PARTE I: TRABAJO ESCRITO (GRUPAL - SOBRE 8 PUNTOS)
 CRITERIOS_ESCRITO = [
-    ("Enfoque legal, doctrinario y ético", "0.75"),
-    ("Comprensión criminológica e hipótesis", "1.00"),
-    ("Gestión y análisis de datos", "1.00"),
-    ("Análisis geoespacial y táctico", "1.00"),
-    ("Análisis estratégico y prospectivo", "1.00"),
-    ("Ciberinteligencia y OSINT", "1.00"),
-    ("Producción de inteligencia y propuesta", "0.75"),
-    ("Presentación del informe", "0.50"),
-    ("Sustentación", "0.50"),
-    ("Elemento Diferenciador", "0.50")
+    ("Enfoque Legal y Tipificación", "1.00", "Identificación clara del tipo penal (COIP), relación de hechos y argumentación estructurada."),
+    ("Comprensión Criminológica e Hipótesis", "1.00", "Formulación de hipótesis verificables, patrones delictivos (modus operandi) y variables criminológicas."),
+    ("Gestión y Análisis de Datos", "1.00", "Recopilación, depuración y uso de herramientas metodológicas para análisis de datos."),
+    ("Análisis Geoespacial y Táctico", "1.50", "Análisis espacial, mapas delictivos, patrones geoestadísticos y valoración táctica del territorio."),
+    ("Ciberinteligencia y OSINT", "1.00", "Uso de fuentes abiertas (web, RRSS, registros públicos), técnicas de verificación e integración analítica."),
+    ("Producción de Inteligencia y Propuesta", "1.50", "Producto estructurado con síntesis de hallazgos, recomendaciones operativas/estratégicas y enfoque decisional."),
+    ("Presentación Formal del Documento", "1.00", "Estructura lógica, redacción clara y correcta integración de tablas, gráficos y mapas.")
 ]
 
-OPCIONES_NIVEL = ["Excelente", "Bueno", "Básico", "Deficiente"]
+# PARTE II: SUSTENTACIÓN ORAL INDIVIDUAL (SOBRE 12 PUNTOS)
+CRITERIOS_ORAL = [
+    ("Sustentación (Exposición y Defensa Oral)", "3.00", "Dominio técnico, claridad, seguridad, argumentación sólida y uso de medios tecnológicos de apoyo."),
+    ("Interrogatorio y Resolución ante el Tribunal", "3.00", "Respuestas fundamentadas, justificación metodológica frente a preguntas, aplomo y seguridad profesional."),
+    ("Análisis Estratégico y Prospectivo", "3.00", "Defensa de tendencias delictivas, proyección de escenarios futuros y análisis de riesgos/alertas."),
+    ("Elemento Diferenciador y Pensamiento Crítico", "3.00", "Innovación, perspicacia analítica, capacidad de evitar sesgos y sustentación con criterio propio.")
+]
+
+OPCIONES_NIVEL = ["Excelente (100%)", "Bueno (80%)", "Básico (60%)", "Deficiente (25%)"]
 PARALELOS_DISPONIBLES = ["Paralelo A", "Paralelo B"]
 
 # -------------------------------------------------------------
@@ -135,7 +157,6 @@ pestana_evaluar, pestana_admin = st.tabs(["📝 Formulario de Calificación", "�
 # --- PESTAÑA EVALUADOR ---
 # =============================================================
 with pestana_evaluar:
-    # BANNER INSTITUCIONAL
     banner_candidatos = [
         "banner.jpeg",
         "banner.jpg",
@@ -199,75 +220,83 @@ with pestana_evaluar:
 
     with st.form("form_calificacion"):
         # PARTE 1: TRABAJO ESCRITO (GRUPAL - 8 PUNTOS)
-        st.markdown("### 📄 PARTE I: TRABAJO ESCRITO (8 PUNTOS)")
+        st.markdown("### 📄 PARTE I: DESARROLLO DEL CASO — PRODUCTO ENTREGABLE FÍSICO (8 PUNTOS)")
         st.caption("Esta calificación aplica a los integrantes del grupo investigativo. Todos los campos son obligatorios.")
         
         cols_escrito = st.columns(2)
         respuestas_escrito = {}
         campos_faltantes = []
         
-        for idx, (crit_nombre, peso) in enumerate(CRITERIOS_ESCRITO):
+        for idx, (crit_nombre, peso, desc) in enumerate(CRITERIOS_ESCRITO):
             col_target = cols_escrito[idx % 2]
             with col_target:
+                st.markdown(f"**{crit_nombre}** *(Máx: {peso} pts)*")
+                st.caption(desc)
                 nivel = st.selectbox(
-                    f"{crit_nombre} (Máx: {peso} pts)",
+                    f"Nivel para {crit_nombre}",
                     OPCIONES_NIVEL,
                     index=None,
                     placeholder="-- Seleccione calificación --",
-                    key=f"esc_{idx}"
+                    key=f"esc_{idx}",
+                    label_visibility="collapsed"
                 )
                 if nivel is not None:
-                    respuestas_escrito[crit_nombre] = PUNTOS_CRITERIO[peso][nivel]
+                    respuestas_escrito[crit_nombre] = PUNTOS_ESCALA[peso][nivel]
                 else:
                     campos_faltantes.append(f"Trabajo Escrito: {crit_nombre}")
+                st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
                     
         st.divider()
         
         # PARTE 2: SUSTENTACIÓN ORAL (INDIVIDUAL - 12 PUNTOS)
         num_alumnos = len(alumnos_activos)
-        st.markdown(f"### 🗣️ PARTE II: SUSTENTACIÓN ORAL INDIVIDUAL (12 PUNTOS) — {num_alumnos} Integrantes")
-        st.caption("Obligatorio calificar individualmente a cada uno de los integrantes del grupo.")
+        st.markdown(f"### 🗣️ PARTE II: SUSTENTACIÓN ORAL, DEFENSA E INTERROGATORIO (12 PUNTOS) — {num_alumnos} Integrantes")
+        st.caption("Obligatorio calificar individualmente los 4 criterios de defensa a cada integrante del grupo.")
         
         evaluaciones_orales = []
         
         if alumnos_activos:
             for i, alumno in enumerate(alumnos_activos):
                 with st.expander(f"👤 Integrante {i+1}: {alumno}", expanded=True):
-                    c_dom, c_preg = st.columns(2)
-                    with c_dom:
-                        dom_nivel = st.radio(
-                            "Dominio del tema (Máx 6 pts):",
-                            OPCIONES_NIVEL,
-                            index=None,
-                            horizontal=True,
-                            key=f"dom_{i}"
-                        )
-                    with c_preg:
-                        preg_nivel = st.radio(
-                            "Interrogatorio (Máx 6 pts):",
-                            OPCIONES_NIVEL,
-                            index=None,
-                            horizontal=True,
-                            key=f"preg_{i}"
-                        )
+                    al_notas = {}
+                    al_completo = True
                     
-                    if dom_nivel is None:
-                        campos_faltantes.append(f"{alumno} ➔ Dominio del tema")
-                    if preg_nivel is None:
-                        campos_faltantes.append(f"{alumno} ➔ Interrogatorio")
-                        
-                    if dom_nivel and preg_nivel:
-                        pts_dom = PUNTOS_CRITERIO["6.00"][dom_nivel]
-                        pts_preg = PUNTOS_CRITERIO["6.00"][preg_nivel]
-                        subtotal_oral = pts_dom + pts_preg
-                        
+                    cols_oral = st.columns(2)
+                    for o_idx, (o_crit, o_peso, o_desc) in enumerate(CRITERIOS_ORAL):
+                        with cols_oral[o_idx % 2]:
+                            st.markdown(f"**{o_crit}** *(Máx: {o_peso} pts)*")
+                            st.caption(o_desc)
+                            calif_oral = st.radio(
+                                f"Calif_{alumno}_{o_idx}",
+                                OPCIONES_NIVEL,
+                                index=None,
+                                horizontal=True,
+                                key=f"oral_{i}_{o_idx}",
+                                label_visibility="collapsed"
+                            )
+                            if calif_oral is None:
+                                campos_faltantes.append(f"{alumno} ➔ {o_crit}")
+                                al_completo = False
+                            else:
+                                al_notas[o_idx] = {
+                                    "nivel": calif_oral,
+                                    "pts": PUNTOS_ESCALA[o_peso][calif_oral]
+                                }
+                            st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
+                    
+                    if al_completo:
+                        subtotal_indiv = sum(n["pts"] for n in al_notas.values())
                         evaluaciones_orales.append({
                             "alumno": alumno,
-                            "dom_nivel": dom_nivel,
-                            "pts_dom": pts_dom,
-                            "preg_nivel": preg_nivel,
-                            "pts_preg": pts_preg,
-                            "subtotal_oral": subtotal_oral
+                            "sust_nivel": al_notas[0]["nivel"],
+                            "sust_pts": al_notas[0]["pts"],
+                            "interrog_nivel": al_notas[1]["nivel"],
+                            "interrog_pts": al_notas[1]["pts"],
+                            "estrateg_nivel": al_notas[2]["nivel"],
+                            "estrateg_pts": al_notas[2]["pts"],
+                            "diferenc_nivel": al_notas[3]["nivel"],
+                            "diferenc_pts": al_notas[3]["pts"],
+                            "subtotal_oral": subtotal_indiv
                         })
         else:
             st.warning("⚠️ Debe seleccionar Paralelo y Grupo arriba para habilitar la nómina de alumnos.")
@@ -287,7 +316,7 @@ with pestana_evaluar:
                 for item in campos_faltantes:
                     st.write(f"❌ **{item}**")
             else:
-                subtotal_escrito = sum(respuestas_escrito.values())
+                subtotal_escrito = round(sum(respuestas_escrito.values()), 2)
                 cursor = conn.cursor()
                 fecha_reg = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
@@ -295,14 +324,21 @@ with pestana_evaluar:
                     nota_total_calc = round(subtotal_escrito + ev["subtotal_oral"], 2)
                     cursor.execute("""
                         INSERT INTO evaluaciones 
-                        (fecha, paralelo, evaluador, grupo, alumno, nota_escrito, oral_dominio_nivel, 
-                         oral_dominio_pts, oral_interrogatorio_nivel, oral_interrogatorio_pts, 
+                        (fecha, paralelo, evaluador, grupo, alumno, nota_escrito, 
+                         oral_sustentacion_nivel, oral_sustentacion_pts,
+                         oral_interrogatorio_nivel, oral_interrogatorio_pts,
+                         oral_estrategico_nivel, oral_estrategico_pts,
+                         oral_diferenciador_nivel, oral_diferenciador_pts,
                          nota_oral, nota_total)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         fecha_reg, paralelo_sel, evaluador_activo, grupo_activo, ev["alumno"],
-                        subtotal_escrito, ev["dom_nivel"], ev["pts_dom"],
-                        ev["preg_nivel"], ev["pts_preg"], ev["subtotal_oral"], nota_total_calc
+                        subtotal_escrito,
+                        ev["sust_nivel"], ev["sust_pts"],
+                        ev["interrog_nivel"], ev["interrog_pts"],
+                        ev["estrateg_nivel"], ev["estrateg_pts"],
+                        ev["diferenc_nivel"], ev["diferenc_pts"],
+                        ev["subtotal_oral"], nota_total_calc
                     ))
                 conn.commit()
                 st.success(f"✅ ¡Evaluación del {paralelo_sel} registrada con éxito!")
@@ -427,8 +463,8 @@ with pestana_admin:
                     nom_grupo = st.text_input("Nombre del Grupo y Caso (ej. Grupo 1 - Caso Homicidios):")
                     alumnos_texto = st.text_area(
                         "Integrantes (escriba o pegue un nombre con grado por línea):",
-                        help="Ejemplo:\nSgto. Juan Pérez\nCbos. Carlos Ruiz\nPoli. Ana Gómez",
-                        placeholder="Sgto. Juan Pérez\nCbos. Carlos Ruiz\nPoli. Ana Gómez\nPoli. Luis Castro"
+                        help="Ejemplo:\\nSgto. Juan Pérez\\nCbos. Carlos Ruiz\\nPoli. Ana Gómez",
+                        placeholder="Sgto. Juan Pérez\\nCbos. Carlos Ruiz\\nPoli. Ana Gómez\\nPoli. Luis Castro"
                     )
                     btn_grupo = st.form_submit_button("➕ Registrar Grupo y Alumnos")
                     
