@@ -21,7 +21,6 @@ def get_db():
     conn = sqlite3.connect("calificaciones_defensa.db", check_same_thread=False)
     cursor = conn.cursor()
     
-    # Tabla de evaluaciones con la nueva estructura
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS evaluaciones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,7 +43,6 @@ def get_db():
         )
     """)
     
-    # Migración de columnas por si la tabla ya existía previamente
     cursor.execute("PRAGMA table_info(evaluaciones)")
     columnas = [col[1] for col in cursor.fetchall()]
     columnas_requeridas = [
@@ -62,7 +60,6 @@ def get_db():
         if col_nom not in columnas:
             cursor.execute(f"ALTER TABLE evaluaciones ADD COLUMN {col_nom} {col_tipo}")
         
-    # Tabla para docentes/evaluadores
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS config_docentes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -70,7 +67,6 @@ def get_db():
             nombre TEXT
         )
     """)
-    # Tabla para grupos y alumnos en formato JSON dinámico
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS config_grupos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,7 +80,6 @@ def get_db():
 
 conn = get_db()
 
-# Cargar configuración activa desde la Base de Datos
 def cargar_configuracion(paralelo):
     cursor = conn.cursor()
     cursor.execute("SELECT nombre FROM config_docentes WHERE paralelo = ? ORDER BY id ASC", (paralelo,))
@@ -102,7 +97,6 @@ def cargar_configuracion(paralelo):
             
     return docentes, grupos_dict
 
-# Función para separar Grado y Nombres/Apellidos
 def separar_grado_nombre(cadena_alumno):
     partes = cadena_alumno.strip().split()
     grados_comunes = [
@@ -118,32 +112,173 @@ def separar_grado_nombre(cadena_alumno):
     return "S/G", cadena_alumno.strip()
 
 # -------------------------------------------------------------
-# 2. BAREMO EXACTO SEGÚN NUEVA RÚBRICA IICEAC (TOTAL 20 PUNTOS)
+# 2. DEFINICIÓN DETALLADA DE LA RÚBRICA (RUBRICA IICEAC.xlsx)
 # -------------------------------------------------------------
-PUNTOS_ESCALA = {
-    "1.00": {"Deficiente (25%)": 0.25, "Básico (60%)": 0.60, "Bueno (80%)": 0.80, "Excelente (100%)": 1.00},
-    "1.50": {"Deficiente (25%)": 0.38, "Básico (60%)": 0.90, "Bueno (80%)": 1.20, "Excelente (100%)": 1.50},
-    "3.00": {"Deficiente (25%)": 0.75, "Básico (60%)": 1.80, "Bueno (80%)": 2.40, "Excelente (100%)": 3.00}
-}
-
-# PARTE I: TRABAJO ESCRITO (GRUPAL - SOBRE 8 PUNTOS)
-CRITERIOS_ESCRITO = [
-    ("Enfoque Legal y Tipificación", "1.00", "Identificación clara del tipo penal (COIP), relación de hechos y argumentación estructurada."),
-    ("Comprensión Criminológica e Hipótesis", "1.00", "Formulación de hipótesis verificables, patrones delictivos (modus operandi) y variables criminológicas."),
-    ("Gestión y Análisis de Datos", "1.00", "Recopilación, depuración y uso de herramientas metodológicas para análisis de datos."),
-    ("Análisis Geoespacial y Táctico", "1.50", "Análisis espacial, mapas delictivos, patrones geoestadísticos y valoración táctica del territorio."),
-    ("Ciberinteligencia y OSINT", "1.00", "Uso de fuentes abiertas (web, RRSS, registros públicos), técnicas de verificación e integración analítica."),
-    ("Producción de Inteligencia y Propuesta", "1.50", "Producto estructurado con síntesis de hallazgos, recomendaciones operativas/estratégicas y enfoque decisional."),
-    ("Presentación Formal del Documento", "1.00", "Estructura lógica, redacción clara y correcta integración de tablas, gráficos y mapas.")
+# PARTE I: 7 Criterios x 3 Indicadores específicos cada uno (Total: 8 Pts)
+CRITERIOS_DETALLADOS_ESCRITO = [
+    {
+        "criterio": "ENFOQUE LEGAL Y TIPIFICACIÓN",
+        "total_pts": 1.00,
+        "indicadores": [
+            {
+                "desc": "Identificación clara del tipo penal aplicable al caso; sustento en normativa legal vigente (COIP u otra normativa pertinente).",
+                "max": 0.33,
+                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+            },
+            {
+                "desc": "Relación coherente entre los hechos analizados y su tipificación jurídica.",
+                "max": 0.33,
+                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+            },
+            {
+                "desc": "Argumentación legal estructurada (elementos del delito: conducta, tipicidad, antijuridicidad, culpabilidad).",
+                "max": 0.34,
+                "valores": {"Excelente (100%)": 0.34, "Bueno (80%)": 0.27, "Básico (60%)": 0.20, "Deficiente (25%)": 0.09}
+            }
+        ]
+    },
+    {
+        "criterio": "COMPRENSIÓN CRIMINOLÓGICA E HIPÓTESIS",
+        "total_pts": 1.00,
+        "indicadores": [
+            {
+                "desc": "Habilidades para la formulación de hipótesis investigativas claras y verificables.",
+                "max": 0.33,
+                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+            },
+            {
+                "desc": "Identificación de patrones delictivos (modus operandi, temporalidad, recurrencia).",
+                "max": 0.33,
+                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+            },
+            {
+                "desc": "Análisis del fenómeno desde una perspectiva criminológica (causas, motivaciones, comportamiento) y relación entre variables.",
+                "max": 0.34,
+                "valores": {"Excelente (100%)": 0.34, "Bueno (80%)": 0.27, "Básico (60%)": 0.20, "Deficiente (25%)": 0.09}
+            }
+        ]
+    },
+    {
+        "criterio": "GESTIÓN Y ANÁLISIS DE DATOS",
+        "total_pts": 1.00,
+        "indicadores": [
+            {
+                "desc": "Capacidad de recopilar, procesar, depurar y analizar información proveniente de diversas fuentes.",
+                "max": 0.33,
+                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+            },
+            {
+                "desc": "Uso de herramientas tecnológicas y metodologías de análisis de datos.",
+                "max": 0.33,
+                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+            },
+            {
+                "desc": "Orientadas a la generación de insumos analíticos que aporten valor al proceso investigativo.",
+                "max": 0.34,
+                "valores": {"Excelente (100%)": 0.34, "Bueno (80%)": 0.27, "Básico (60%)": 0.20, "Deficiente (25%)": 0.09}
+            }
+        ]
+    },
+    {
+        "criterio": "ANÁLISIS GEOESPACIAL Y TÁCTICO",
+        "total_pts": 1.50,
+        "indicadores": [
+            {
+                "desc": "Capacidad de recopilar, procesar, depurar y analizar información geoespacial proveniente de diversas fuentes.",
+                "max": 0.50,
+                "valores": {"Excelente (100%)": 0.50, "Bueno (80%)": 0.40, "Básico (60%)": 0.30, "Deficiente (25%)": 0.13}
+            },
+            {
+                "desc": "Uso de herramientas tecnológicas y metodologías de análisis táctico y mapas delictivos.",
+                "max": 0.50,
+                "valores": {"Excelente (100%)": 0.50, "Bueno (80%)": 0.40, "Básico (60%)": 0.30, "Deficiente (25%)": 0.13}
+            },
+            {
+                "desc": "Orientadas a la generación de insumos analíticos tácticos y espaciales que aporten al proceso.",
+                "max": 0.50,
+                "valores": {"Excelente (100%)": 0.50, "Bueno (80%)": 0.40, "Básico (60%)": 0.30, "Deficiente (25%)": 0.13}
+            }
+        ]
+    },
+    {
+        "criterio": "CIBERINTELIGENCIA Y OSINT",
+        "total_pts": 1.00,
+        "indicadores": [
+            {
+                "desc": "Uso de fuentes abiertas (redes sociales, web, registros públicos).",
+                "max": 0.33,
+                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+            },
+            {
+                "desc": "Aplicación de técnicas básicas de búsqueda, filtrado, verificación y validación de la información obtenida.",
+                "max": 0.33,
+                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+            },
+            {
+                "desc": "Integración de hallazgos OSINT dentro del análisis general plasmado en el informe.",
+                "max": 0.34,
+                "valores": {"Excelente (100%)": 0.34, "Bueno (80%)": 0.27, "Básico (60%)": 0.20, "Deficiente (25%)": 0.09}
+            }
+        ]
+    },
+    {
+        "criterio": "PRODUCCIÓN DE INTELIGENCIA Y PROPUESTA",
+        "total_pts": 1.50,
+        "indicadores": [
+            {
+                "desc": "Elaboración de un producto de inteligencia estructurado, que contenga una síntesis clara de hallazgos relevantes.",
+                "max": 0.50,
+                "valores": {"Excelente (100%)": 0.50, "Bueno (80%)": 0.40, "Básico (60%)": 0.30, "Deficiente (25%)": 0.13}
+            },
+            {
+                "desc": "Generación de recomendaciones operativas y/o estratégicas.",
+                "max": 0.50,
+                "valores": {"Excelente (100%)": 0.50, "Bueno (80%)": 0.40, "Básico (60%)": 0.30, "Deficiente (25%)": 0.13}
+            },
+            {
+                "desc": "Mantenimiento de un enfoque práctico orientado a la toma de decisiones institucionales.",
+                "max": 0.50,
+                "valores": {"Excelente (100%)": 0.50, "Bueno (80%)": 0.40, "Básico (60%)": 0.30, "Deficiente (25%)": 0.13}
+            }
+        ]
+    },
+    {
+        "criterio": "PRESENTACIÓN FORMAL DEL DOCUMENTO",
+        "total_pts": 1.00,
+        "indicadores": [
+            {
+                "desc": "Estructura lógica del documento entregable físico (inicio, teoría de caso, desarrollo, conclusiones).",
+                "max": 0.33,
+                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+            },
+            {
+                "desc": "Redacción clara, coherente y sin errores ortográficos.",
+                "max": 0.33,
+                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+            },
+            {
+                "desc": "Uso adecuado de tablas, gráficos, mapas e imágenes integradas al informe.",
+                "max": 0.34,
+                "valores": {"Excelente (100%)": 0.34, "Bueno (80%)": 0.27, "Básico (60%)": 0.20, "Deficiente (25%)": 0.09}
+            }
+        ]
+    }
 ]
 
-# PARTE II: SUSTENTACIÓN ORAL INDIVIDUAL (SOBRE 12 PUNTOS)
+# PARTE II: 4 Criterios Oficiales Orales (Total: 12 Pts)
 CRITERIOS_ORAL = [
-    ("Sustentación (Exposición y Defensa Oral)", "3.00", "Dominio técnico, claridad, seguridad, argumentación sólida y uso de medios tecnológicos de apoyo."),
-    ("Interrogatorio y Resolución ante el Tribunal", "3.00", "Respuestas fundamentadas, justificación metodológica frente a preguntas, aplomo y seguridad profesional."),
-    ("Análisis Estratégico y Prospectivo", "3.00", "Defensa de tendencias delictivas, proyección de escenarios futuros y análisis de riesgos/alertas."),
-    ("Elemento Diferenciador y Pensamiento Crítico", "3.00", "Innovación, perspicacia analítica, capacidad de evitar sesgos y sustentación con criterio propio.")
+    ("Sustentación (Exposición y Defensa Oral)", 3.00, "Dominio técnico, claridad, seguridad, argumentación sólida y uso de medios tecnológicos."),
+    ("Interrogatorio y Resolución ante el Tribunal", 3.00, "Respuestas fundamentadas, justificación metodológica, aplomo y control profesional."),
+    ("Análisis Estratégico y Prospectivo", 3.00, "Tendencias delictivas, proyección de escenarios futuros (desplazamiento, mutación) y análisis de riesgos."),
+    ("Elemento Diferenciador y Pensamiento Crítico", 3.00, "Innovación, perspicacia analítica, capacidad de evitar sesgos y criterio propio.")
 ]
+
+PUNTOS_ORAL = {
+    "Excelente (100%)": 3.00,
+    "Bueno (80%)": 2.40,
+    "Básico (60%)": 1.80,
+    "Deficiente (25%)": 0.75
+}
 
 OPCIONES_NIVEL = ["Excelente (100%)", "Bueno (80%)", "Básico (60%)", "Deficiente (25%)"]
 PARALELOS_DISPONIBLES = ["Paralelo A", "Paralelo B"]
@@ -221,37 +356,44 @@ with pestana_evaluar:
     with st.form("form_calificacion"):
         # PARTE 1: TRABAJO ESCRITO (GRUPAL - 8 PUNTOS)
         st.markdown("### 📄 PARTE I: DESARROLLO DEL CASO — PRODUCTO ENTREGABLE FÍSICO (8 PUNTOS)")
-        st.caption("Esta calificación aplica a los integrantes del grupo investigativo. Todos los campos son obligatorios.")
+        st.caption("Esta calificación aplica a los integrantes del grupo investigativo. Evalúe individualmente cada indicador.")
         
-        cols_escrito = st.columns(2)
-        respuestas_escrito = {}
+        respuestas_escrito = []
         campos_faltantes = []
         
-        for idx, (crit_nombre, peso, desc) in enumerate(CRITERIOS_ESCRITO):
-            col_target = cols_escrito[idx % 2]
-            with col_target:
-                st.markdown(f"**{crit_nombre}** *(Máx: {peso} pts)*")
-                st.caption(desc)
-                nivel = st.selectbox(
-                    f"Nivel para {crit_nombre}",
-                    OPCIONES_NIVEL,
-                    index=None,
-                    placeholder="-- Seleccione calificación --",
-                    key=f"esc_{idx}",
-                    label_visibility="collapsed"
-                )
-                if nivel is not None:
-                    respuestas_escrito[crit_nombre] = PUNTOS_ESCALA[peso][nivel]
-                else:
-                    campos_faltantes.append(f"Trabajo Escrito: {crit_nombre}")
-                st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
-                    
-        st.divider()
-        
+        # Despliegue de los 7 criterios con sus 3 indicadores cada uno
+        for c_idx, crit_obj in enumerate(CRITERIOS_DETALLADOS_ESCRITO):
+            c_nombre = crit_obj["criterio"]
+            c_tot = crit_obj["total_pts"]
+            
+            with st.container():
+                st.markdown(f"#### 📌 {c_nombre} *(Puntaje Máximo: {c_tot:.2f} pts)*")
+                
+                for ind_idx, ind in enumerate(crit_obj["indicadores"]):
+                    c_desc, c_sel = st.columns([3, 2])
+                    with c_desc:
+                        st.markdown(f"**Indicador {ind_idx + 1}:** {ind['desc']}")
+                        st.caption(f"Valor Máximo: {ind['max']:.2f} pts")
+                    with c_sel:
+                        opc_sel = st.selectbox(
+                            f"Nivel para Ind {ind_idx+1} de {c_nombre}",
+                            OPCIONES_NIVEL,
+                            index=None,
+                            placeholder="-- Seleccione calificación --",
+                            key=f"esc_{c_idx}_{ind_idx}",
+                            label_visibility="collapsed"
+                        )
+                        if opc_sel is not None:
+                            pts_obtenidos = ind["valores"][opc_sel]
+                            respuestas_escrito.append(pts_obtenidos)
+                        else:
+                            campos_faltantes.append(f"{c_nombre} ➔ Indicador {ind_idx + 1}")
+                    st.divider()
+
         # PARTE 2: SUSTENTACIÓN ORAL (INDIVIDUAL - 12 PUNTOS)
         num_alumnos = len(alumnos_activos)
         st.markdown(f"### 🗣️ PARTE II: SUSTENTACIÓN ORAL, DEFENSA E INTERROGATORIO (12 PUNTOS) — {num_alumnos} Integrantes")
-        st.caption("Obligatorio calificar individualmente los 4 criterios de defensa a cada integrante del grupo.")
+        st.caption("Obligatorio calificar individualmente los 4 criterios a cada integrante del grupo.")
         
         evaluaciones_orales = []
         
@@ -264,7 +406,7 @@ with pestana_evaluar:
                     cols_oral = st.columns(2)
                     for o_idx, (o_crit, o_peso, o_desc) in enumerate(CRITERIOS_ORAL):
                         with cols_oral[o_idx % 2]:
-                            st.markdown(f"**{o_crit}** *(Máx: {o_peso} pts)*")
+                            st.markdown(f"**{o_crit}** *(Máx: {o_peso:.2f} pts)*")
                             st.caption(o_desc)
                             calif_oral = st.radio(
                                 f"Calif_{alumno}_{o_idx}",
@@ -280,9 +422,9 @@ with pestana_evaluar:
                             else:
                                 al_notas[o_idx] = {
                                     "nivel": calif_oral,
-                                    "pts": PUNTOS_ESCALA[o_peso][calif_oral]
+                                    "pts": PUNTOS_ORAL[calif_oral]
                                 }
-                            st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
+                            st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
                     
                     if al_completo:
                         subtotal_indiv = sum(n["pts"] for n in al_notas.values())
@@ -311,12 +453,12 @@ with pestana_evaluar:
             elif not grupo_activo:
                 st.error("⚠️ Debe seleccionar el Grupo a Evaluar.")
             elif len(campos_faltantes) > 0:
-                st.error("🚨 **EVALUACIÓN INCOMPLETA: Hay campos sin calificar.**")
+                st.error("🚨 **EVALUACIÓN INCOMPLETA: Hay campos o indicadores sin calificar.**")
                 st.warning("Por favor complete los siguientes ítems antes de guardar:")
                 for item in campos_faltantes:
                     st.write(f"❌ **{item}**")
             else:
-                subtotal_escrito = round(sum(respuestas_escrito.values()), 2)
+                subtotal_escrito = round(sum(respuestas_escrito), 2)
                 cursor = conn.cursor()
                 fecha_reg = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
