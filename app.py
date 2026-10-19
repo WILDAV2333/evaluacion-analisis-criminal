@@ -7,6 +7,7 @@ import os
 from datetime import datetime
 import docx
 
+# Configuración visual para pantallas móviles y de escritorio
 st.set_page_config(
     page_title="Evaluación - Proyecto Integrador",
     page_icon="⚖️",
@@ -14,9 +15,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# -------------------------------------------------------------
+# 1. BASE DE DATOS LOCAL Y MIGRACIÓN AUTOMÁTICA
+# -------------------------------------------------------------
 def get_db():
     conn = sqlite3.connect("calificaciones_defensa.db", check_same_thread=False)
     cursor = conn.cursor()
+    
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS evaluaciones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,6 +44,7 @@ def get_db():
             nota_total REAL
         )
     """)
+    
     cursor.execute("PRAGMA table_info(evaluaciones)")
     columnas = [col[1] for col in cursor.fetchall()]
     columnas_requeridas = [
@@ -116,6 +122,12 @@ def separar_grado_nombre(cadena_alumno):
         return partes[0], " ".join(partes[1:])
     return "S/G", cadena_alumno.strip()
 
+# -------------------------------------------------------------
+# 2. DEFINICIÓN DETALLADA DE LA RÚBRICA (5%, 50%, 75%, 100%)
+# -------------------------------------------------------------
+OPCIONES_NIVEL = ["Excelente", "Bueno", "Básico", "Deficiente"]
+PARALELOS_DISPONIBLES = ["Paralelo A", "Paralelo B"]
+
 CRITERIOS_DETALLADOS_ESCRITO = [
     {
         "criterio": "ENFOQUE LEGAL Y TIPIFICACIÓN",
@@ -124,17 +136,17 @@ CRITERIOS_DETALLADOS_ESCRITO = [
             {
                 "desc": "Identificación clara del tipo penal aplicable al caso; sustento en normativa legal vigente (COIP u otra normativa pertinente).",
                 "max": 0.33,
-                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.25, "Básico": 0.17, "Deficiente": 0.02}
             },
             {
                 "desc": "Relación coherente entre los hechos analizados y su tipificación jurídica.",
                 "max": 0.33,
-                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.25, "Básico": 0.17, "Deficiente": 0.02}
             },
             {
                 "desc": "Argumentación legal estructurada (elementos del delito: conducta, tipicidad, antijuridicidad, culpabilidad).",
                 "max": 0.34,
-                "valores": {"Excelente": 0.34, "Bueno": 0.27, "Básico": 0.20, "Deficiente": 0.09}
+                "valores": {"Excelente": 0.34, "Bueno": 0.25, "Básico": 0.16, "Deficiente": 0.01}
             }
         ]
     },
@@ -145,17 +157,17 @@ CRITERIOS_DETALLADOS_ESCRITO = [
             {
                 "desc": "Habilidades para la formulación de hipótesis investigativas claras y verificables.",
                 "max": 0.33,
-                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.25, "Básico": 0.17, "Deficiente": 0.02}
             },
             {
                 "desc": "Identificación de patrones delictivos (modus operandi, temporalidad, recurrencia).",
                 "max": 0.33,
-                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.25, "Básico": 0.17, "Deficiente": 0.02}
             },
             {
                 "desc": "Análisis del fenómeno desde una perspectiva criminológica (causas, motivaciones, comportamiento) y la relación entre variables (víctima, victimario, entorno).",
                 "max": 0.34,
-                "valores": {"Excelente": 0.34, "Bueno": 0.27, "Básico": 0.20, "Deficiente": 0.09}
+                "valores": {"Excelente": 0.34, "Bueno": 0.25, "Básico": 0.16, "Deficiente": 0.01}
             }
         ]
     },
@@ -166,17 +178,17 @@ CRITERIOS_DETALLADOS_ESCRITO = [
             {
                 "desc": "Análisis del plan de investigación o presentan un plan de investigación.",
                 "max": 0.33,
-                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.25, "Básico": 0.17, "Deficiente": 0.02}
             },
             {
                 "desc": "Realizan el mapeo de jerarquías (tipo de estructura criminal, nodos y enlaces (facilitadores)).",
                 "max": 0.33,
-                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.25, "Básico": 0.17, "Deficiente": 0.02}
             },
             {
                 "desc": "Evaluación procedimental (robustez de las pruebas o evidencias presentadas).",
                 "max": 0.34,
-                "valores": {"Excelente": 0.34, "Bueno": 0.27, "Básico": 0.20, "Deficiente": 0.09}
+                "valores": {"Excelente": 0.34, "Bueno": 0.25, "Básico": 0.16, "Deficiente": 0.01}
             }
         ]
     },
@@ -187,17 +199,17 @@ CRITERIOS_DETALLADOS_ESCRITO = [
             {
                 "desc": "Capacidad de recopilar, procesar, depurar y analizar información proveniente de diversas fuentes.",
                 "max": 0.50,
-                "valores": {"Excelente": 0.50, "Bueno": 0.40, "Básico": 0.30, "Deficiente": 0.13}
+                "valores": {"Excelente": 0.50, "Bueno": 0.38, "Básico": 0.25, "Deficiente": 0.03}
             },
             {
                 "desc": "Uso de herramientas tecnológicas y metodologías de análisis de datos.",
                 "max": 0.50,
-                "valores": {"Excelente": 0.50, "Bueno": 0.40, "Básico": 0.30, "Deficiente": 0.13}
+                "valores": {"Excelente": 0.50, "Bueno": 0.38, "Básico": 0.25, "Deficiente": 0.03}
             },
             {
                 "desc": "Orientadas a la generación de insumos analíticos que aporten valor al proceso investigativo.",
                 "max": 0.50,
-                "valores": {"Excelente": 0.50, "Bueno": 0.40, "Básico": 0.30, "Deficiente": 0.13}
+                "valores": {"Excelente": 0.50, "Bueno": 0.38, "Básico": 0.25, "Deficiente": 0.02}
             }
         ]
     },
@@ -208,17 +220,17 @@ CRITERIOS_DETALLADOS_ESCRITO = [
             {
                 "desc": "Uso de fuentes abiertas (redes sociales, web, registros públicos).",
                 "max": 0.33,
-                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.25, "Básico": 0.17, "Deficiente": 0.02}
             },
             {
                 "desc": "Aplicación de técnicas básicas de búsqueda, filtrado, verificación y validación de la información obtenida.",
                 "max": 0.33,
-                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.25, "Básico": 0.17, "Deficiente": 0.02}
             },
             {
                 "desc": "Integración de hallazgos OSINT dentro del análisis general plasmado en el informe.",
                 "max": 0.34,
-                "valores": {"Excelente": 0.34, "Bueno": 0.27, "Básico": 0.20, "Deficiente": 0.09}
+                "valores": {"Excelente": 0.34, "Bueno": 0.25, "Básico": 0.16, "Deficiente": 0.01}
             }
         ]
     },
@@ -229,17 +241,17 @@ CRITERIOS_DETALLADOS_ESCRITO = [
             {
                 "desc": "Elaboración de un producto de inteligencia estructurado, que contenga una síntesis clara de hallazgos relevantes.",
                 "max": 0.50,
-                "valores": {"Excelente": 0.50, "Bueno": 0.40, "Básico": 0.30, "Deficiente": 0.13}
+                "valores": {"Excelente": 0.50, "Bueno": 0.38, "Básico": 0.25, "Deficiente": 0.03}
             },
             {
                 "desc": "Generación de recomendaciones operativas y/o estratégicas.",
                 "max": 0.50,
-                "valores": {"Excelente": 0.50, "Bueno": 0.40, "Básico": 0.30, "Deficiente": 0.13}
+                "valores": {"Excelente": 0.50, "Bueno": 0.38, "Básico": 0.25, "Deficiente": 0.03}
             },
             {
                 "desc": "Mantenimiento de un enfoque práctico orientado a la toma de decisiones institucionales.",
                 "max": 0.50,
-                "valores": {"Excelente": 0.50, "Bueno": 0.40, "Básico": 0.30, "Deficiente": 0.13}
+                "valores": {"Excelente": 0.50, "Bueno": 0.38, "Básico": 0.25, "Deficiente": 0.02}
             }
         ]
     },
@@ -250,17 +262,17 @@ CRITERIOS_DETALLADOS_ESCRITO = [
             {
                 "desc": "Estructura lógica del documento entregable físico (inicio, teoría de caso, desarrollo, conclusiones).",
                 "max": 0.33,
-                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.25, "Básico": 0.17, "Deficiente": 0.02}
             },
             {
                 "desc": "Redacción clara, coherente y sin errores ortográficos.",
                 "max": 0.33,
-                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.25, "Básico": 0.17, "Deficiente": 0.02}
             },
             {
                 "desc": "Uso adecuado de tablas, gráficos, mapas e imágenes integradas al informe.",
                 "max": 0.34,
-                "valores": {"Excelente": 0.34, "Bueno": 0.27, "Básico": 0.20, "Deficiente": 0.09}
+                "valores": {"Excelente": 0.34, "Bueno": 0.25, "Básico": 0.16, "Deficiente": 0.01}
             }
         ]
     }
@@ -275,13 +287,10 @@ CRITERIOS_ORAL = [
 
 PUNTOS_ORAL = {
     "Excelente": 3.00,
-    "Bueno": 2.40,
-    "Básico": 1.80,
-    "Deficiente": 0.75
+    "Bueno": 2.25,
+    "Básico": 1.50,
+    "Deficiente": 0.15
 }
-
-OPCIONES_NIVEL = ["Excelente", "Bueno", "Básico", "Deficiente"]
-PARALELOS_DISPONIBLES = ["Paralelo A", "Paralelo B"]
 
 def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso, fecha_str, integrantes, tribunal_nombres, notas_escrito_21, notas_oral_4):
     doc = docx.Document(plantilla_path)
@@ -359,10 +368,9 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
     t2.rows[0].cells[1].text = f"{tot_general:.2f} / 20 puntos"
     
     t3 = doc.tables[3]
-    firma_base = "\n\n\n\nFirma: _____________________\nNombres: "
-    t3.rows[0].cells[0].text = firma_base + (tribunal_nombres[0] if len(tribunal_nombres) > 0 else "………………………")
-    t3.rows[0].cells[1].text = firma_base + (tribunal_nombres[1] if len(tribunal_nombres) > 1 else "………………………")
-    t3.rows[1].cells[0].text = firma_base + (tribunal_nombres[2] if len(tribunal_nombres) > 2 else "………………………")
+    t3.rows[0].cells[0].text = "\n\n\n\nFirma: _____________________\nNombres: " + (tribunal_nombres[0] if len(tribunal_nombres) > 0 else "………………………")
+    t3.rows[0].cells[1].text = "\n\n\n\nFirma: _____________________\nNombres: " + (tribunal_nombres[1] if len(tribunal_nombres) > 1 else "………………………")
+    t3.rows[1].cells[0].text = "\n\n\n\nFirma: _____________________\nNombres: " + (tribunal_nombres[2] if len(tribunal_nombres) > 2 else "………………………")
     t3.rows[1].cells[1].text = ""
     
     buffer = io.BytesIO()
