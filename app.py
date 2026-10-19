@@ -7,7 +7,6 @@ import os
 from datetime import datetime
 import docx
 
-# Configuración visual para pantallas móviles y de escritorio
 st.set_page_config(
     page_title="Evaluación - Proyecto Integrador",
     page_icon="⚖️",
@@ -15,13 +14,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# -------------------------------------------------------------
-# 1. BASE DE DATOS LOCAL Y MIGRACIÓN AUTOMÁTICA
-# -------------------------------------------------------------
 def get_db():
     conn = sqlite3.connect("calificaciones_defensa.db", check_same_thread=False)
     cursor = conn.cursor()
-    
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS evaluaciones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,7 +39,6 @@ def get_db():
             nota_total REAL
         )
     """)
-    
     cursor.execute("PRAGMA table_info(evaluaciones)")
     columnas = [col[1] for col in cursor.fetchall()]
     columnas_requeridas = [
@@ -122,9 +116,6 @@ def separar_grado_nombre(cadena_alumno):
         return partes[0], " ".join(partes[1:])
     return "S/G", cadena_alumno.strip()
 
-# -------------------------------------------------------------
-# 2. DEFINICIÓN DETALLADA DE LA RÚBRICA (RUBRICA IICEAC.xlsx)
-# -------------------------------------------------------------
 CRITERIOS_DETALLADOS_ESCRITO = [
     {
         "criterio": "ENFOQUE LEGAL Y TIPIFICACIÓN",
@@ -133,17 +124,17 @@ CRITERIOS_DETALLADOS_ESCRITO = [
             {
                 "desc": "Identificación clara del tipo penal aplicable al caso; sustento en normativa legal vigente (COIP u otra normativa pertinente).",
                 "max": 0.33,
-                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
             },
             {
                 "desc": "Relación coherente entre los hechos analizados y su tipificación jurídica.",
                 "max": 0.33,
-                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
             },
             {
                 "desc": "Argumentación legal estructurada (elementos del delito: conducta, tipicidad, antijuridicidad, culpabilidad).",
                 "max": 0.34,
-                "valores": {"Excelente (100%)": 0.34, "Bueno (80%)": 0.27, "Básico (60%)": 0.20, "Deficiente (25%)": 0.09}
+                "valores": {"Excelente": 0.34, "Bueno": 0.27, "Básico": 0.20, "Deficiente": 0.09}
             }
         ]
     },
@@ -154,38 +145,38 @@ CRITERIOS_DETALLADOS_ESCRITO = [
             {
                 "desc": "Habilidades para la formulación de hipótesis investigativas claras y verificables.",
                 "max": 0.33,
-                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
             },
             {
                 "desc": "Identificación de patrones delictivos (modus operandi, temporalidad, recurrencia).",
                 "max": 0.33,
-                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
             },
             {
-                "desc": "Análisis del fenómeno desde una perspectiva criminológica (causas, motivaciones, comportamiento) y relación entre variables.",
+                "desc": "Análisis del fenómeno desde una perspectiva criminológica (causas, motivaciones, comportamiento) y la relación entre variables (víctima, victimario, entorno).",
                 "max": 0.34,
-                "valores": {"Excelente (100%)": 0.34, "Bueno (80%)": 0.27, "Básico (60%)": 0.20, "Deficiente (25%)": 0.09}
+                "valores": {"Excelente": 0.34, "Bueno": 0.27, "Básico": 0.20, "Deficiente": 0.09}
             }
         ]
     },
     {
-        "criterio": "GESTIÓN Y ANÁLISIS DE DATOS",
+        "criterio": "ANÁLISIS DE INVESTIGACIÓN CRIMINAL",
         "total_pts": 1.00,
         "indicadores": [
             {
-                "desc": "Capacidad de recopilar, procesar, depurar y analizar información proveniente de diversas fuentes.",
+                "desc": "Análisis del plan de investigación o presentan un plan de investigación.",
                 "max": 0.33,
-                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
             },
             {
-                "desc": "Uso de herramientas tecnológicas y metodologías de análisis de datos.",
+                "desc": "Realizan el mapeo de jerarquías (tipo de estructura criminal, nodos y enlaces (facilitadores)).",
                 "max": 0.33,
-                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
             },
             {
-                "desc": "Orientadas a la generación de insumos analíticos que aporten valor al proceso investigativo.",
+                "desc": "Evaluación procedimental (robustez de las pruebas o evidencias presentadas).",
                 "max": 0.34,
-                "valores": {"Excelente (100%)": 0.34, "Bueno (80%)": 0.27, "Básico (60%)": 0.20, "Deficiente (25%)": 0.09}
+                "valores": {"Excelente": 0.34, "Bueno": 0.27, "Básico": 0.20, "Deficiente": 0.09}
             }
         ]
     },
@@ -194,40 +185,40 @@ CRITERIOS_DETALLADOS_ESCRITO = [
         "total_pts": 1.50,
         "indicadores": [
             {
-                "desc": "Capacidad de recopilar, procesar, depurar y analizar información geoespacial proveniente de diversas fuentes.",
+                "desc": "Capacidad de recopilar, procesar, depurar y analizar información proveniente de diversas fuentes.",
                 "max": 0.50,
-                "valores": {"Excelente (100%)": 0.50, "Bueno (80%)": 0.40, "Básico (60%)": 0.30, "Deficiente (25%)": 0.13}
+                "valores": {"Excelente": 0.50, "Bueno": 0.40, "Básico": 0.30, "Deficiente": 0.13}
             },
             {
-                "desc": "Uso de herramientas tecnológicas y metodologías de análisis táctico y mapas delictivos.",
+                "desc": "Uso de herramientas tecnológicas y metodologías de análisis de datos.",
                 "max": 0.50,
-                "valores": {"Excelente (100%)": 0.50, "Bueno (80%)": 0.40, "Básico (60%)": 0.30, "Deficiente (25%)": 0.13}
+                "valores": {"Excelente": 0.50, "Bueno": 0.40, "Básico": 0.30, "Deficiente": 0.13}
             },
             {
-                "desc": "Orientadas a la generación de insumos analíticos tácticos y espaciales que aporten al proceso.",
+                "desc": "Orientadas a la generación de insumos analíticos que aporten valor al proceso investigativo.",
                 "max": 0.50,
-                "valores": {"Excelente (100%)": 0.50, "Bueno (80%)": 0.40, "Básico (60%)": 0.30, "Deficiente (25%)": 0.13}
+                "valores": {"Excelente": 0.50, "Bueno": 0.40, "Básico": 0.30, "Deficiente": 0.13}
             }
         ]
     },
     {
-        "criterio": "CIBERINTELIGENCIA Y OSINT",
+        "criterio": "OSINT Y CIBERINTELIGENCIA",
         "total_pts": 1.00,
         "indicadores": [
             {
                 "desc": "Uso de fuentes abiertas (redes sociales, web, registros públicos).",
                 "max": 0.33,
-                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
             },
             {
                 "desc": "Aplicación de técnicas básicas de búsqueda, filtrado, verificación y validación de la información obtenida.",
                 "max": 0.33,
-                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
             },
             {
                 "desc": "Integración de hallazgos OSINT dentro del análisis general plasmado en el informe.",
                 "max": 0.34,
-                "valores": {"Excelente (100%)": 0.34, "Bueno (80%)": 0.27, "Básico (60%)": 0.20, "Deficiente (25%)": 0.09}
+                "valores": {"Excelente": 0.34, "Bueno": 0.27, "Básico": 0.20, "Deficiente": 0.09}
             }
         ]
     },
@@ -238,17 +229,17 @@ CRITERIOS_DETALLADOS_ESCRITO = [
             {
                 "desc": "Elaboración de un producto de inteligencia estructurado, que contenga una síntesis clara de hallazgos relevantes.",
                 "max": 0.50,
-                "valores": {"Excelente (100%)": 0.50, "Bueno (80%)": 0.40, "Básico (60%)": 0.30, "Deficiente (25%)": 0.13}
+                "valores": {"Excelente": 0.50, "Bueno": 0.40, "Básico": 0.30, "Deficiente": 0.13}
             },
             {
                 "desc": "Generación de recomendaciones operativas y/o estratégicas.",
                 "max": 0.50,
-                "valores": {"Excelente (100%)": 0.50, "Bueno (80%)": 0.40, "Básico (60%)": 0.30, "Deficiente (25%)": 0.13}
+                "valores": {"Excelente": 0.50, "Bueno": 0.40, "Básico": 0.30, "Deficiente": 0.13}
             },
             {
                 "desc": "Mantenimiento de un enfoque práctico orientado a la toma de decisiones institucionales.",
                 "max": 0.50,
-                "valores": {"Excelente (100%)": 0.50, "Bueno (80%)": 0.40, "Básico (60%)": 0.30, "Deficiente (25%)": 0.13}
+                "valores": {"Excelente": 0.50, "Bueno": 0.40, "Básico": 0.30, "Deficiente": 0.13}
             }
         ]
     },
@@ -259,46 +250,42 @@ CRITERIOS_DETALLADOS_ESCRITO = [
             {
                 "desc": "Estructura lógica del documento entregable físico (inicio, teoría de caso, desarrollo, conclusiones).",
                 "max": 0.33,
-                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
             },
             {
                 "desc": "Redacción clara, coherente y sin errores ortográficos.",
                 "max": 0.33,
-                "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
+                "valores": {"Excelente": 0.33, "Bueno": 0.26, "Básico": 0.20, "Deficiente": 0.08}
             },
             {
                 "desc": "Uso adecuado de tablas, gráficos, mapas e imágenes integradas al informe.",
                 "max": 0.34,
-                "valores": {"Excelente (100%)": 0.34, "Bueno (80%)": 0.27, "Básico (60%)": 0.20, "Deficiente (25%)": 0.09}
+                "valores": {"Excelente": 0.34, "Bueno": 0.27, "Básico": 0.20, "Deficiente": 0.09}
             }
         ]
     }
 ]
 
 CRITERIOS_ORAL = [
-    ("Sustentación (Exposición y Defensa Oral)", 3.00, "Dominio técnico, claridad, seguridad, argumentación sólida y uso de medios tecnológicos."),
-    ("Interrogatorio y Resolución ante el Tribunal", 3.00, "Respuestas fundamentadas, justificación metodológica, aplomo y control profesional."),
-    ("Análisis Estratégico y Prospectivo", 3.00, "Tendencias delictivas, proyección de escenarios futuros (desplazamiento, mutación) y análisis de riesgos."),
-    ("Elemento Diferenciador y Pensamiento Crítico", 3.00, "Innovación, perspicacia analítica, capacidad de evitar sesgos y criterio propio.")
+    ("Sustentación (Exposición y Defensa Oral)", 3.00, "Dominio técnico del tema expuesto, claridad, seguridad, argumentación sólida y material audiovisual de apoyo."),
+    ("Interrogatorio y Resolución ante el Tribunal", 3.00, "Respuestas precisas, fundamentadas, justificación metodológica, aplomo y seguridad profesional."),
+    ("Análisis Estratégico y Prospectivo (Defensa de Escenarios)", 3.00, "Identificación de tendencias delictivas, proyección de escenarios futuros y formulación de alertas."),
+    ("Elemento Diferenciador (Valor Agregado y Pensamiento Crítico)", 3.00, "Innovación, perspicacia analítica, perspectiva crítica, evitar sesgos y criterio propio.")
 ]
 
 PUNTOS_ORAL = {
-    "Excelente (100%)": 3.00,
-    "Bueno (80%)": 2.40,
-    "Básico (60%)": 1.80,
-    "Deficiente (25%)": 0.75
+    "Excelente": 3.00,
+    "Bueno": 2.40,
+    "Básico": 1.80,
+    "Deficiente": 0.75
 }
 
-OPCIONES_NIVEL = ["Excelente (100%)", "Bueno (80%)", "Básico (60%)", "Deficiente (25%)"]
+OPCIONES_NIVEL = ["Excelente", "Bueno", "Básico", "Deficiente"]
 PARALELOS_DISPONIBLES = ["Paralelo A", "Paralelo B"]
 
-# -------------------------------------------------------------
-# FUNCIÓN GENERADORA DEL ACTA OFICIAL DOCX
-# -------------------------------------------------------------
 def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso, fecha_str, integrantes, tribunal_nombres, notas_escrito_21, notas_oral_4):
     doc = docx.Document(plantilla_path)
     
-    # Encabezado (Párrafos)
     doc.paragraphs[5].text = f"Integrantes del Grupo Nro: {grupo_nombre}                           Paralelo: {paralelo}"
     
     for i in range(6):
@@ -318,8 +305,13 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
         else:
             doc.paragraphs[p_idx].text = f"{i+1}. ----------------------------------------"
             
-    # Tabla 0: Parte I (Entregable Físico - 21 Indicadores)
     t0 = doc.tables[0]
+    t0.rows[11].cells[1].text = "ANÁLISIS DE INVESTIGACIÓN CRIMINAL"
+    t0.rows[12].cells[1].text = "Análisis del plan de investigación o presentan un plan de investigación"
+    t0.rows[13].cells[1].text = "Realizan el mapeo de jerarquías (tipo de estructura criminal, nodos y enlaces (facilitadores))"
+    t0.rows[14].cells[1].text = "Evaluación procedimental (robustez de las pruebas o evidencias presentadas)"
+    t0.rows[21].cells[1].text = "OSINT Y CIBERINTELIGENCIA"
+    
     mapa_crit_t0 = [
         ([2, 3, 4], 5),
         ([7, 8, 9], 10),
@@ -344,7 +336,6 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
         
     t0.rows[36].cells[2].text = f"{tot_escrito_acum:.2f} / 8 puntos"
     
-    # Tabla 1: Parte II (Sustentación Oral - 4 Criterios)
     t1 = doc.tables[1]
     mapa_crit_t1 = [
         ([2, 3, 4], 5),
@@ -363,12 +354,10 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
         
     t1.rows[21].cells[2].text = f"{tot_oral_acum:.2f} / 12 puntos"
     
-    # Tabla 2: Total General
     t2 = doc.tables[2]
     tot_general = tot_escrito_acum + tot_oral_acum
     t2.rows[0].cells[1].text = f"{tot_general:.2f} / 20 puntos"
     
-    # Tabla 3: Cuadro de Firmas
     t3 = doc.tables[3]
     firma_base = "\n\n\n\nFirma: _____________________\nNombres: "
     t3.rows[0].cells[0].text = firma_base + (tribunal_nombres[0] if len(tribunal_nombres) > 0 else "………………………")
@@ -380,14 +369,8 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
     doc.save(buffer)
     return buffer.getvalue()
 
-# -------------------------------------------------------------
-# 3. INTERFAZ: PESTAÑAS
-# -------------------------------------------------------------
 pestana_evaluar, pestana_admin = st.tabs(["📝 Formulario de Calificación", "🔒 Administrador"])
 
-# =============================================================
-# --- PESTAÑA EVALUADOR ---
-# =============================================================
 with pestana_evaluar:
     banner_candidatos = [
         "banner.jpeg",
@@ -453,7 +436,6 @@ with pestana_evaluar:
         st.info("👆 Seleccione primero el Paralelo para cargar el Tribunal y los Grupos correspondientes.")
 
     with st.form("form_calificacion"):
-        # PARTE 1: TRABAJO ESCRITO (GRUPAL - 8 PUNTOS)
         st.markdown("### 📄 PARTE I: DESARROLLO DEL CASO — PRODUCTO ENTREGABLE FÍSICO (8 PUNTOS)")
         st.caption("Esta calificación aplica a los integrantes del grupo investigativo. Evalúe individualmente cada indicador.")
         
@@ -488,7 +470,6 @@ with pestana_evaluar:
                             campos_faltantes.append(f"{c_nombre} ➔ Indicador {ind_idx + 1}")
                     st.divider()
 
-        # PARTE 2: SUSTENTACIÓN ORAL (INDIVIDUAL - 12 PUNTOS)
         num_alumnos = len(alumnos_activos)
         st.markdown(f"### 🗣️ PARTE II: SUSTENTACIÓN ORAL, DEFENSA E INTERROGATORIO (12 PUNTOS) — {num_alumnos} Integrantes")
         st.caption("Obligatorio calificar individualmente los 4 criterios a cada integrante del grupo.")
@@ -585,9 +566,6 @@ with pestana_evaluar:
                 st.success(f"✅ ¡Evaluación del {paralelo_sel} registrada con éxito!")
                 st.balloons()
 
-# =============================================================
-# --- PESTAÑA ADMINISTRADOR ---
-# =============================================================
 with pestana_admin:
     st.subheader("Panel de Control del Administrador")
     password = st.text_input("Ingrese la Contraseña:", type="password")
@@ -595,7 +573,6 @@ with pestana_admin:
     if password == "AdminPolicial2026":
         tabs_admin = st.tabs(["📊 Consolidado de Notas", "📄 Generar Actas Word (.docx)", "⚙️ Gestión de Docentes y Grupos"])
         
-        # SUB-PESTAÑA 1: CONSOLIDADO Y EXCEL (.XLSX)
         with tabs_admin[0]:
             df = pd.read_sql_query("SELECT * FROM evaluaciones", conn)
             if df.empty:
@@ -647,7 +624,6 @@ with pestana_admin:
                 else:
                     st.info(f"No hay registros aún para {filtro_admin}.")
             
-            # --- ZONA DE MANTENIMIENTO: BORRAR PRUEBAS ---
             st.divider()
             with st.expander("⚠️ Zona de Mantenimiento: Vaciar Evaluaciones de Prueba"):
                 st.warning("Esta acción eliminará únicamente las calificaciones registradas. No afectará a los evaluadores ni a los grupos configurados.")
@@ -659,7 +635,6 @@ with pestana_admin:
                     st.success("✅ Base de datos de calificaciones reiniciada a cero.")
                     st.rerun()
 
-        # SUB-PESTAÑA 2: GENERACIÓN DE ACTAS OFICIALES EN WORD (.DOCX)
         with tabs_admin[1]:
             st.markdown("### 🖨️ Generación de Actas Físicas Oficiales (Formato Institucional Word)")
             st.caption("Consolida automáticamente las notas emitidas por los miembros del tribunal calificador.")
@@ -739,7 +714,6 @@ with pestana_admin:
                 else:
                     st.info(f"No hay grupos registrados en el {par_acta}.")
 
-        # SUB-PESTAÑA 3: GESTIÓN DE DOCENTES, GRUPOS Y CURSANTES DINÁMICOS
         with tabs_admin[2]:
             st.markdown("### 👥 Configuración de Nóminas y Tribunales")
             paralelo_gestionar = st.selectbox("Seleccione el Paralelo a configurar:", PARALELOS_DISPONIBLES)
