@@ -123,7 +123,7 @@ def separar_grado_nombre(cadena_alumno):
     return "S/G", cadena_alumno.strip()
 
 # -------------------------------------------------------------
-# 2. DEFINICIÓN DETALLADA DE LA RÚBRICA (RUBRICA IICEAC.xlsx)
+# 2. DEFINICIÓN DETALLADA DE LA RÚBRICA (RUBRICA IICEAC- MEJORADA 2.xlsx)
 # -------------------------------------------------------------
 CRITERIOS_DETALLADOS_ESCRITO = [
     {
@@ -162,28 +162,28 @@ CRITERIOS_DETALLADOS_ESCRITO = [
                 "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
             },
             {
-                "desc": "Análisis del fenómeno desde una perspectiva criminológica (causas, motivaciones, comportamiento) y relación entre variables.",
+                "desc": "Análisis del fenómeno desde una perspectiva criminológica (causas, motivaciones, comportamiento) y la relación entre variables (víctima, victimario, entorno).",
                 "max": 0.34,
                 "valores": {"Excelente (100%)": 0.34, "Bueno (80%)": 0.27, "Básico (60%)": 0.20, "Deficiente (25%)": 0.09}
             }
         ]
     },
     {
-        "criterio": "GESTIÓN Y ANÁLISIS DE DATOS",
+        "criterio": "ANÁLISIS DE INVESTIGACIÓN CRIMINAL",
         "total_pts": 1.00,
         "indicadores": [
             {
-                "desc": "Capacidad de recopilar, procesar, depurar y analizar información proveniente de diversas fuentes.",
+                "desc": "Análisis del plan de investigación o presentan un plan de investigación.",
                 "max": 0.33,
                 "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
             },
             {
-                "desc": "Uso de herramientas tecnológicas y metodologías de análisis de datos.",
+                "desc": "Realizan el mapeo de jerarquías (tipo de estructura criminal, nodos y enlaces (facilitadores)).",
                 "max": 0.33,
                 "valores": {"Excelente (100%)": 0.33, "Bueno (80%)": 0.26, "Básico (60%)": 0.20, "Deficiente (25%)": 0.08}
             },
             {
-                "desc": "Orientadas a la generación de insumos analíticos que aporten valor al proceso investigativo.",
+                "desc": "Evaluación procedimental (robustez de las pruebas o evidencias presentadas).",
                 "max": 0.34,
                 "valores": {"Excelente (100%)": 0.34, "Bueno (80%)": 0.27, "Básico (60%)": 0.20, "Deficiente (25%)": 0.09}
             }
@@ -194,24 +194,24 @@ CRITERIOS_DETALLADOS_ESCRITO = [
         "total_pts": 1.50,
         "indicadores": [
             {
-                "desc": "Capacidad de recopilar, procesar, depurar y analizar información geoespacial proveniente de diversas fuentes.",
+                "desc": "Capacidad de recopilar, procesar, depurar y analizar información proveniente de diversas fuentes.",
                 "max": 0.50,
                 "valores": {"Excelente (100%)": 0.50, "Bueno (80%)": 0.40, "Básico (60%)": 0.30, "Deficiente (25%)": 0.13}
             },
             {
-                "desc": "Uso de herramientas tecnológicas y metodologías de análisis táctico y mapas delictivos.",
+                "desc": "Uso de herramientas tecnológicas y metodologías de análisis de datos.",
                 "max": 0.50,
                 "valores": {"Excelente (100%)": 0.50, "Bueno (80%)": 0.40, "Básico (60%)": 0.30, "Deficiente (25%)": 0.13}
             },
             {
-                "desc": "Orientadas a la generación de insumos analíticos tácticos y espaciales que aporten al proceso.",
+                "desc": "Orientadas a la generación de insumos analíticos que aporten valor al proceso investigativo.",
                 "max": 0.50,
                 "valores": {"Excelente (100%)": 0.50, "Bueno (80%)": 0.40, "Básico (60%)": 0.30, "Deficiente (25%)": 0.13}
             }
         ]
     },
     {
-        "criterio": "CIBERINTELIGENCIA Y OSINT",
+        "criterio": "OSINT Y CIBERINTELIGENCIA",
         "total_pts": 1.00,
         "indicadores": [
             {
@@ -276,10 +276,10 @@ CRITERIOS_DETALLADOS_ESCRITO = [
 ]
 
 CRITERIOS_ORAL = [
-    ("Sustentación (Exposición y Defensa Oral)", 3.00, "Dominio técnico, claridad, seguridad, argumentación sólida y uso de medios tecnológicos."),
-    ("Interrogatorio y Resolución ante el Tribunal", 3.00, "Respuestas fundamentadas, justificación metodológica, aplomo y control profesional."),
-    ("Análisis Estratégico y Prospectivo", 3.00, "Tendencias delictivas, proyección de escenarios futuros (desplazamiento, mutación) y análisis de riesgos."),
-    ("Elemento Diferenciador y Pensamiento Crítico", 3.00, "Innovación, perspicacia analítica, capacidad de evitar sesgos y criterio propio.")
+    ("Sustentación (Exposición y Defensa Oral)", 3.00, "Dominio técnico del tema expuesto, claridad, seguridad, argumentación sólida y material audiovisual de apoyo."),
+    ("Interrogatorio y Resolución ante el Tribunal", 3.00, "Respuestas precisas, fundamentadas, justificación metodológica, aplomo y seguridad profesional."),
+    ("Análisis Estratégico y Prospectivo (Defensa de Escenarios)", 3.00, "Identificación de tendencias delictivas, proyección de escenarios futuros y formulación de alertas."),
+    ("Elemento Diferenciador (Valor Agregado y Pensamiento Crítico)", 3.00, "Innovación, perspicacia analítica, perspectiva crítica, evitar sesgos y criterio propio.")
 ]
 
 PUNTOS_ORAL = {
@@ -320,6 +320,14 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
             
     # Tabla 0: Parte I (Entregable Físico - 21 Indicadores)
     t0 = doc.tables[0]
+    
+    # Actualización automática de rótulos según nueva rúbrica
+    t0.rows[11].cells[1].text = "ANÁLISIS DE INVESTIGACIÓN CRIMINAL"
+    t0.rows[12].cells[1].text = "Análisis del plan de investigación o presentan un plan de investigación"
+    t0.rows[13].cells[1].text = "Realizan el mapeo de jerarquías (tipo de estructura criminal, nodos y enlaces (facilitadores))"
+    t0.rows[14].cells[1].text = "Evaluación procedimental (robustez de las pruebas o evidencias presentadas)"
+    t0.rows[21].cells[1].text = "OSINT Y CIBERINTELIGENCIA"
+    
     mapa_crit_t0 = [
         ([2, 3, 4], 5),
         ([7, 8, 9], 10),
@@ -780,8 +788,8 @@ with pestana_admin:
                     tema_grupo = st.text_input("Tema del Caso Analizado (ej. Análisis de Redes de Vínculos):")
                     alumnos_texto = st.text_area(
                         "Integrantes (escriba o pegue un nombre con grado por línea, de 4 a 6):",
-                        help="Ejemplo:\nSgto. Juan Pérez\nCbos. Carlos Ruiz\nPoli. Ana Gómez",
-                        placeholder="Sgto. Juan Pérez\nCbos. Carlos Ruiz\nPoli. Ana Gómez\nPoli. Luis Castro"
+                        help="Ejemplo:\\nSgto. Juan Pérez\\nCbos. Carlos Ruiz\\nPoli. Ana Gómez",
+                        placeholder="Sgto. Juan Pérez\\nCbos. Carlos Ruiz\\nPoli. Ana Gómez\\nPoli. Luis Castro"
                     )
                     btn_grupo = st.form_submit_button("➕ Registrar Grupo y Alumnos")
                     
