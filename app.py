@@ -317,7 +317,6 @@ PUNTOS_ORAL = {
     "Deficiente": 0.15
 }
 
-# Generar archivo Excel con estilo exacto de la Imagen 2
 def generar_excel_cuadro_individual(df_cuadro, nombre_grupo, paralelo):
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -406,7 +405,7 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
         else:
             doc.paragraphs[p_idx].text = f"{i+1}. ----------------------------------------"
             
-    # 2. Tabla 0: Parte I (Entregable Físico - 21 Indicadores)
+    # 2. Tabla 0: Fase I (Entregable Físico - 21 Indicadores)
     t0 = doc.tables[0]
     t0.rows[11].cells[1].text = "ANÁLISIS DE INVESTIGACIÓN CRIMINAL"
     t0.rows[12].cells[1].text = "Análisis del plan de investigación o presentan un plan de investigación"
@@ -446,12 +445,12 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
     t1_old._element.getparent().remove(t1_old._element)
     t2_old._element.getparent().remove(t2_old._element)
     
-    # 4. Insertar encabezado oficial de la PARTE II
+    # 4. Insertar encabezado oficial de la FASE II
     p_head = doc.add_paragraph()
     p_head.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_head.paragraph_format.space_before = Pt(14)
     p_head.paragraph_format.space_after = Pt(6)
-    r_head = p_head.add_run("PARTE II: SUSTENTACIÓN ORAL, DEFENSA E INTERROGATORIO (Sobre 12 Puntos)")
+    r_head = p_head.add_run("FASE II: SUSTENTACIÓN ORAL, DEFENSA E INTERROGATORIO (Sobre 12 Puntos)")
     r_head.bold = True
     r_head.font.size = Pt(10)
     r_head.font.name = "Arial"
@@ -655,7 +654,6 @@ with pestana_evaluar:
                 
         with col_grp:
             if grupos_paralelo and evaluador_activo:
-                # Bloqueo de grupos ya calificados por este evaluador
                 cursor = conn.cursor()
                 cursor.execute("""
                     SELECT DISTINCT grupo FROM evaluaciones 
@@ -687,7 +685,6 @@ with pestana_evaluar:
     else:
         st.info("👆 Seleccione primero el Paralelo para cargar el Tribunal y los Grupos correspondientes.")
 
-    # Módulo de transparencia para docentes
     if paralelo_sel and grupos_paralelo:
         with st.expander("🔍 Ver y Descargar Cuadro Consolidado de Grupos Calificados (Transparencia)"):
             st.caption("Una vez que los miembros del tribunal culminan con la evaluación del grupo, aquí se genera el cuadro consolidado oficial.")
@@ -715,10 +712,9 @@ with pestana_evaluar:
                 else:
                     st.warning("Este grupo aún no tiene calificaciones registradas.")
 
-    # Formulario activo solo para grupos no calificados previamente
     if grupo_activo:
         with st.form("form_calificacion"):
-            st.markdown(f"### 📄 PARTE I: DESARROLLO DEL CASO — PRODUCTO ENTREGABLE FÍSICO (8 PUNTOS)")
+            st.markdown(f"### 📄 FASE I: DESARROLLO DEL CASO — PRODUCTO ENTREGABLE FÍSICO (8 PUNTOS)")
             st.caption(f"Calificación grupal para: **{grupo_activo}** — Tema: *{tema_activo}*")
             
             respuestas_escrito = []
@@ -748,12 +744,12 @@ with pestana_evaluar:
                             if opc_sel is not None:
                                 pts_obtenidos = ind["valores"][opc_sel]
                                 respuestas_escrito.append(pts_obtenidos)
-                            else:
-                                campos_faltantes.append(f"{c_nombre} ➔ Indicador {ind_idx + 1}")
-                        st.divider()
+                        else:
+                            campos_faltantes.append(f"{c_nombre} ➔ Indicador {ind_idx + 1}")
+                    st.divider()
 
             num_alumnos = len(alumnos_activos)
-            st.markdown(f"### 🗣️ PARTE II: SUSTENTACIÓN ORAL, DEFENSA E INTERROGATORIO (12 PUNTOS) — {num_alumnos} Integrantes")
+            st.markdown(f"### 🗣️ FASE II: SUSTENTACIÓN ORAL, DEFENSA E INTERROGATORIO (12 PUNTOS) — {num_alumnos} Integrantes")
             st.caption("Obligatorio calificar individualmente los 4 criterios a cada integrante del grupo.")
             
             evaluaciones_orales = []
@@ -887,7 +883,6 @@ with pestana_admin:
     if password == "AdminPolicial2026":
         tabs_admin = st.tabs(["📊 Consolidado de Notas", "📄 Generar Actas Word (.docx)", "⚙️ Gestión de Docentes y Grupos"])
         
-        # Filtro por paralelo y grupo en el resumen Excel
         with tabs_admin[0]:
             df = pd.read_sql_query("SELECT * FROM evaluaciones", conn)
             if df.empty:
@@ -961,7 +956,6 @@ with pestana_admin:
                     st.success("✅ Base de datos de calificaciones reiniciada a cero.")
                     st.rerun()
 
-        # Generación de Actas Físicas Oficiales en Word (.docx)
         with tabs_admin[1]:
             st.markdown("### 🖨️ Generación de Actas Físicas Oficiales (Formato Institucional Word)")
             st.caption("Consolida automáticamente las notas individuales y grupales para la emisión del acta oficial.")
@@ -1057,7 +1051,6 @@ with pestana_admin:
                 else:
                     st.info(f"No hay grupos registrados en el {par_acta}.")
 
-        # Gestión de Docentes, Grupos y Alumnos
         with tabs_admin[2]:
             st.markdown("### 👥 Configuración de Nóminas y Tribunales")
             paralelo_gestionar = st.selectbox("Seleccione el Paralelo a configurar:", PARALELOS_DISPONIBLES)
