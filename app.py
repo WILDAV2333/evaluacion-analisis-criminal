@@ -108,18 +108,41 @@ def cargar_configuracion(paralelo):
             
     return docentes, grupos_dict, temas_dict
 
+# -------------------------------------------------------------
+# FUNCIÓN DE SEPARACIÓN DE GRADOS POLICIALES EXACTOS
+# -------------------------------------------------------------
 def separar_grado_nombre(cadena_alumno):
-    partes = cadena_alumno.strip().split()
-    grados_comunes = [
-        "sgto.", "sgto", "cbos.", "cbos", "poli.", "poli", "policía", "policia",
-        "subt.", "subt", "tnte.", "tnte", "teniente", "capt.", "capt", "capitán",
-        "capitan", "mayr.", "mayr", "mayor", "sgtos.", "sgtos", "sbop.", "sbop",
-        "sbsp.", "sbsp", "sgtop.", "sgtop", "crnl.", "crnl"
-    ]
-    if len(partes) >= 2 and partes[0].lower() in grados_comunes:
-        if len(partes) >= 3 and partes[1].lower() in ["segundo", "primero", "2do", "1ro"]:
-            return f"{partes[0]} {partes[1]}", " ".join(partes[2:])
-        return partes[0], " ".join(partes[1:])
+    partes = cadena_alumno.strip().split(maxsplit=1)
+    if not partes:
+        return "S/G", ""
+    
+    primer_token = partes[0].strip()
+    token_lower = primer_token.lower()
+    
+    # Mapa exacto de grados institucionales oficiales
+    mapa_grados = {
+        "cptn.": "Cptn.", "cptn": "Cptn.",
+        "tnte.": "Tnte.", "tnte": "Tnte.",
+        "sbte.": "Sbte.", "sbte": "Sbte.", "subt.": "Sbte.", "subt": "Sbte.",
+        "sgop.": "Sgop.", "sgop": "Sgop.", "sgto.": "Sgop.", "sgto": "Sgop.",
+        "sgos.": "Sgos.", "sgos": "Sgos.",
+        "cbop.": "Cbop.", "cbop": "Cbop.",
+        "cbos.": "Cbos.", "cbos": "Cbos.",
+        "poli.": "Poli.", "poli": "Poli.", "policia": "Poli.", "policía": "Poli.",
+        "myor.": "Myor.", "myor": "Myor.", "mayor": "Myor.",
+        "crnl.": "Crnl.", "crnl": "Crnl.", "coronel": "Crnl.",
+        "gral.": "Gral.", "gral": "Gral."
+    }
+    
+    if token_lower in mapa_grados:
+        grado_oficial = mapa_grados[token_lower]
+        resto_nombres = partes[1].strip() if len(partes) > 1 else ""
+        return grado_oficial, resto_nombres
+    elif (token_lower.rstrip(".") + ".") in mapa_grados:
+        grado_oficial = mapa_grados[token_lower.rstrip(".") + "."]
+        resto_nombres = partes[1].strip() if len(partes) > 1 else ""
+        return grado_oficial, resto_nombres
+        
     return "S/G", cadena_alumno.strip()
 
 # -------------------------------------------------------------
@@ -368,9 +391,10 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
     t2.rows[0].cells[1].text = f"{tot_general:.2f} / 20 puntos"
     
     t3 = doc.tables[3]
-    t3.rows[0].cells[0].text = "\n\n\n\nFirma: _____________________\nNombres: " + (tribunal_nombres[0] if len(tribunal_nombres) > 0 else "………………………")
-    t3.rows[0].cells[1].text = "\n\n\n\nFirma: _____________________\nNombres: " + (tribunal_nombres[1] if len(tribunal_nombres) > 1 else "………………………")
-    t3.rows[1].cells[0].text = "\n\n\n\nFirma: _____________________\nNombres: " + (tribunal_nombres[2] if len(tribunal_nombres) > 2 else "………………………")
+    firma_base = "\n\n\n\nFirma: _____________________\nNombres: "
+    t3.rows[0].cells[0].text = firma_base + (tribunal_nombres[0] if len(tribunal_nombres) > 0 else "………………………")
+    t3.rows[0].cells[1].text = firma_base + (tribunal_nombres[1] if len(tribunal_nombres) > 1 else "………………………")
+    t3.rows[1].cells[0].text = firma_base + (tribunal_nombres[2] if len(tribunal_nombres) > 2 else "………………………")
     t3.rows[1].cells[1].text = ""
     
     buffer = io.BytesIO()
@@ -720,7 +744,7 @@ with pestana_admin:
                     else:
                         st.warning(f"Aún no hay calificaciones registradas para el {grp_acta}.")
                 else:
-                    st.info(f"No hay grupos registrados en el {par_acta}.")
+                    st.info(f"No hay grupos registrados en el {paralelo_sel}.")
 
         with tabs_admin[2]:
             st.markdown("### 👥 Configuración de Nóminas y Tribunales")
@@ -762,8 +786,8 @@ with pestana_admin:
                     tema_grupo = st.text_input("Tema del Caso Analizado (ej. Análisis de Redes de Vínculos):")
                     alumnos_texto = st.text_area(
                         "Integrantes (escriba o pegue un nombre con grado por línea, de 4 a 6):",
-                        help="Ejemplo:\nSgto. Juan Pérez\nCbos. Carlos Ruiz\nPoli. Ana Gómez",
-                        placeholder="Sgto. Juan Pérez\nCbos. Carlos Ruiz\nPoli. Ana Gómez\nPoli. Luis Castro"
+                        help="Ejemplo:\\nSgto. Juan Pérez\\nCbos. Carlos Ruiz\\nPoli. Ana Gómez",
+                        placeholder="Sgto. Juan Pérez\\nCbos. Carlos Ruiz\\nPoli. Ana Gómez\\nPoli. Luis Castro"
                     )
                     btn_grupo = st.form_submit_button("➕ Registrar Grupo y Alumnos")
                     
