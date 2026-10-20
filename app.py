@@ -456,7 +456,7 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
     r_head.font.name = "Arial"
     t3_firmas._element.addprevious(p_head._element)
     
-    # 5. Insertar la nueva Tabla Individual (Imagen 2) con las 10 columnas
+    # 5. Insertar la nueva Tabla Individual con las 10 columnas
     columnas_indiv = [
         "Ord.", "Grado", "Nombres y\nApellidos", 
         "Sustentación\n(3.00)", "Interrogatorio\n(3.00)", 
@@ -744,9 +744,9 @@ with pestana_evaluar:
                             if opc_sel is not None:
                                 pts_obtenidos = ind["valores"][opc_sel]
                                 respuestas_escrito.append(pts_obtenidos)
-                        else:
-                            campos_faltantes.append(f"{c_nombre} ➔ Indicador {ind_idx + 1}")
-                    st.divider()
+                            else:
+                                campos_faltantes.append(f"{c_nombre} ➔ Indicador {ind_idx + 1}")
+                        st.divider()
 
             num_alumnos = len(alumnos_activos)
             st.markdown(f"### 🗣️ FASE II: SUSTENTACIÓN ORAL, DEFENSA E INTERROGATORIO (12 PUNTOS) — {num_alumnos} Integrantes")
@@ -1049,7 +1049,7 @@ with pestana_admin:
                     else:
                         st.warning(f"Aún no hay calificaciones registradas para el {grp_acta}.")
                 else:
-                    st.info(f"No hay grupos registrados en el {par_acta}.")
+                    st.info("No hay grupos registrados en este paralelo.")
 
         with tabs_admin[2]:
             st.markdown("### 👥 Configuración de Nóminas y Tribunales")
