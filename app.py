@@ -6,6 +6,11 @@ import io
 import os
 from datetime import datetime
 import docx
+from docx.shared import Inches, Pt, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
+from docx.oxml import OxmlElement, parse_xml
+from docx.oxml.ns import nsdecls, qn
 
 # Configuración visual para pantallas móviles y de escritorio
 st.set_page_config(
@@ -119,7 +124,6 @@ def separar_grado_nombre(cadena_alumno):
     primer_token = partes[0].strip()
     token_lower = primer_token.lower()
     
-    # Mapa exacto de grados institucionales oficiales
     mapa_grados = {
         "cptn.": "Cptn.", "cptn": "Cptn.",
         "tnte.": "Tnte.", "tnte": "Tnte.",
@@ -315,9 +319,13 @@ PUNTOS_ORAL = {
     "Deficiente": 0.15
 }
 
-def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso, fecha_str, integrantes, tribunal_nombres, notas_escrito_21, notas_oral_4):
+# -------------------------------------------------------------
+# FUNCIÓN GENERADORA DEL ACTA OFICIAL DOCX COMPLETA
+# -------------------------------------------------------------
+def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso, fecha_str, integrantes, tribunal_nombres, notas_escrito_21, desglose_alumnos):
     doc = docx.Document(plantilla_path)
     
+    # 1. Encabezado de la primera página
     doc.paragraphs[5].text = f"Integrantes del Grupo Nro: {grupo_nombre}                           Paralelo: {paralelo}"
     
     for i in range(6):
@@ -337,6 +345,7 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
         else:
             doc.paragraphs[p_idx].text = f"{i+1}. ----------------------------------------"
             
+    # 2. Tabla 0: Parte I (Entregable Físico - 21 Indicadores)
     t0 = doc.tables[0]
     t0.rows[11].cells[1].text = "ANÁLISIS DE INVESTIGACIÓN CRIMINAL"
     t0.rows[12].cells[1].text = "Análisis del plan de investigación o presentan un plan de investigación"
@@ -368,6 +377,7 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
         
     t0.rows[36].cells[2].text = f"{tot_escrito_acum:.2f} / 8 puntos"
     
+    # 3. Tabla 1: Sustentación Oral - Promedio General de Grupo
     t1 = doc.tables[1]
     mapa_crit_t1 = [
         ([2, 3, 4], 5),
@@ -375,9 +385,20 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
         ([12, 13, 14], 15),
         ([17, 18, 19], 20)
     ]
+    
+    # Promedios orales del grupo para la tabla base
+    if desglose_alumnos:
+        avg_sust = sum(al["sust"] for al in desglose_alumnos) / len(desglose_alumnos)
+        avg_interrog = sum(al["interrog"] for al in desglose_alumnos) / len(desglose_alumnos)
+        avg_estrateg = sum(al["estrateg"] for al in desglose_alumnos) / len(desglose_alumnos)
+        avg_diferenc = sum(al["diferenc"] for al in desglose_alumnos) / len(desglose_alumnos)
+    else:
+        avg_sust = avg_interrog = avg_estrateg = avg_diferenc = 0.0
+        
+    notas_oral_grupo = [avg_sust, avg_interrog, avg_estrateg, avg_diferenc]
     tot_oral_acum = 0.0
     for c_idx, (ind_rows, tot_row) in enumerate(mapa_crit_t1):
-        crit_val = float(notas_oral_4[c_idx]) if c_idx < len(notas_oral_4) else 0.0
+        crit_val = float(notas_oral_grupo[c_idx])
         val_ind = crit_val / 3.0
         for r in ind_rows:
             t1.rows[r].cells[2].text = f"{val_ind:.2f}"
@@ -386,23 +407,105 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
         
     t1.rows[21].cells[2].text = f"{tot_oral_acum:.2f} / 12 puntos"
     
+    # 4. Tabla 2: Total General del Grupo
     t2 = doc.tables[2]
     tot_general = tot_escrito_acum + tot_oral_acum
     t2.rows[0].cells[1].text = f"{tot_general:.2f} / 20 puntos"
     
-    t3 = doc.tables[3]
-    firma_base = "\n\n\n\nFirma: _____________________\nNombres: "
-    t3.rows[0].cells[0].text = firma_base + (tribunal_nombres[0] if len(tribunal_nombres) > 0 else "………………………")
-    t3.rows[0].cells[1].text = firma_base + (tribunal_nombres[1] if len(tribunal_nombres) > 1 else "………………………")
-    t3.rows[1].cells[0].text = firma_base + (tribunal_nombres[2] if len(tribunal_nombres) > 2 else "………………………")
-    t3.rows[1].cells[1].text = ""
+    # 5. INSERCIÓN DE LA TABLA INDIVIDUALIZADA DE SUSTENTACIÓN ORAL
+    # Insertar párrafo de título antes de la tabla de firmas
+    p_individual = doc.add_paragraph()
+    p_individual.paragraph_format.space_before = Pt(14)
+    p_individual.paragraph_format.space_after = Pt(6)
+    r_ind = p_individual.add_run("CUADRO DE CALIFICACIÓN INDIVIDUALIZADA DE LA SUSTENTACIÓN ORAL Y NOTA FINAL")
+    r_ind.bold = True
+    r_ind.font.size = Pt(10)
+    r_ind.font.name = "Arial"
+    p_individual.alignment = WD_ALIGN_PARAGRAPH.CENTER
     
+    # Crear tabla con 10 columnas oficiales
+    columnas_indiv = [
+        "Ord.", "Grado", "Nombres y Apellidos", 
+        "Sustentación\n(3.00)", "Interrogatorio\n(3.00)", 
+        "Análisis Estrat.\n(3.00)", "Elem. Diferenc.\n(3.00)", 
+        "TOTAL ORAL\n(12.00)", "TRABAJO ESCRITO\n(8.00)", "CALIFICACIÓN FINAL\n(20.00)"
+    ]
+    
+    num_filas = len(desglose_alumnos) + 1
+    t_indiv = doc.add_table(rows=num_filas, cols=10)
+    t_indiv.alignment = WD_TABLE_ALIGNMENT.CENTER
+    t_indiv.style = "Table Grid"
+    
+    # Cabecera de la tabla individual
+    hdr_cells = t_indiv.rows[0].cells
+    for c_i, col_name in enumerate(columnas_indiv):
+        hdr_cells[c_i].text = col_name
+        shading = parse_xml(r'<w:shd {} w:fill="E2EFDA"/>'.format(nsdecls('w')))
+        hdr_cells[c_i]._tc.get_or_add_tcPr().append(shading)
+        p = hdr_cells[c_i].paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for run in p.runs:
+            run.font.bold = True
+            run.font.size = Pt(7.5)
+            run.font.name = "Arial"
+            
+    # Llenado de filas de cada integrante
+    for row_i, al in enumerate(desglose_alumnos, start=1):
+        row_cells = t_indiv.rows[row_i].cells
+        grado, nombres = separar_grado_nombre(al["nombre"])
+        
+        datos_fila = [
+            str(row_i),
+            grado,
+            nombres,
+            f"{al['sust']:.2f}",
+            f"{al['interrog']:.2f}",
+            f"{al['estrateg']:.2f}",
+            f"{al['diferenc']:.2f}",
+            f"{al['total_oral']:.2f}",
+            f"{tot_escrito_acum:.2f}",
+            f"{(al['total_oral'] + tot_escrito_acum):.2f}"
+        ]
+        
+        for c_i, valor in enumerate(datos_fila):
+            row_cells[c_i].text = valor
+            p = row_cells[c_i].paragraphs[0]
+            p.alignment = WD_ALIGN_PARAGRAPH.LEFT if c_i == 2 else WD_ALIGN_PARAGRAPH.CENTER
+            for run in p.runs:
+                run.font.size = Pt(8)
+                run.font.name = "Arial"
+                if c_i in [7, 8, 9]:
+                    run.font.bold = True
+
+    # 6. Tabla 3: Cuadro de Firmas Oficial (3 Miembros del Tribunal)
+    t3 = doc.tables[3]
+    t3.rows[0].cells[0].text = "\n\n\n\n___________________________\nFirma: Evaluador 1\nNombres: " + (tribunal_nombres[0] if len(tribunal_nombres) > 0 else "………………………")
+    t3.rows[0].cells[1].text = "\n\n\n\n___________________________\nFirma: Evaluador 2\nNombres: " + (tribunal_nombres[1] if len(tribunal_nombres) > 1 else "………………………")
+    
+    # Fila 1 es combinada única: NO tocar cells[1] para no borrar cells[0]
+    t3.rows[1].cells[0].text = "\n\n\n\n___________________________\nFirma: Evaluador 3\nNombres: " + (tribunal_nombres[2] if len(tribunal_nombres) > 2 else "………………………")
+    
+    # Centrar texto de las firmas
+    for row in t3.rows:
+        for cell in row.cells:
+            for p in cell.paragraphs:
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                for run in p.runs:
+                    run.font.size = Pt(8.5)
+                    run.font.name = "Arial"
+
     buffer = io.BytesIO()
     doc.save(buffer)
     return buffer.getvalue()
 
+# -------------------------------------------------------------
+# 3. INTERFAZ: PESTAÑAS
+# -------------------------------------------------------------
 pestana_evaluar, pestana_admin = st.tabs(["📝 Formulario de Calificación", "🔒 Administrador"])
 
+# =============================================================
+# --- PESTAÑA EVALUADOR ---
+# =============================================================
 with pestana_evaluar:
     banner_candidatos = [
         "banner.jpeg",
@@ -598,6 +701,9 @@ with pestana_evaluar:
                 st.success(f"✅ ¡Evaluación del {paralelo_sel} registrada con éxito!")
                 st.balloons()
 
+# =============================================================
+# --- PESTAÑA ADMINISTRADOR ---
+# =============================================================
 with pestana_admin:
     st.subheader("Panel de Control del Administrador")
     password = st.text_input("Ingrese la Contraseña:", type="password")
@@ -605,6 +711,7 @@ with pestana_admin:
     if password == "AdminPolicial2026":
         tabs_admin = st.tabs(["📊 Consolidado de Notas", "📄 Generar Actas Word (.docx)", "⚙️ Gestión de Docentes y Grupos"])
         
+        # SUB-PESTAÑA 1: CONSOLIDADO Y EXCEL (.XLSX)
         with tabs_admin[0]:
             df = pd.read_sql_query("SELECT * FROM evaluaciones", conn)
             if df.empty:
@@ -667,6 +774,7 @@ with pestana_admin:
                     st.success("✅ Base de datos de calificaciones reiniciada a cero.")
                     st.rerun()
 
+        # SUB-PESTAÑA 2: GENERACIÓN DE ACTAS OFICIALES EN WORD (.DOCX)
         with tabs_admin[1]:
             st.markdown("### 🖨️ Generación de Actas Físicas Oficiales (Formato Institucional Word)")
             st.caption("Consolida automáticamente las notas emitidas por los miembros del tribunal calificador.")
@@ -684,25 +792,28 @@ with pestana_admin:
                     
                     cursor = conn.cursor()
                     cursor.execute("""
-                        SELECT evaluador, detalles_escrito_json, 
+                        SELECT evaluador, alumno, detalles_escrito_json, 
                                oral_sustentacion_pts, oral_interrogatorio_pts, 
-                               oral_estrategico_pts, oral_diferenciador_pts, fecha
+                               oral_estrategico_pts, oral_diferenciador_pts, 
+                               nota_oral, fecha
                         FROM evaluaciones
                         WHERE paralelo = ? AND grupo = ?
                     """, (par_acta, grp_acta))
                     registros = cursor.fetchall()
                     
                     if registros:
-                        evaluadores_registrados = list(set(r[0] for r in registros))
-                        st.success(f"📋 Se encontraron evaluaciones registradas de {len(evaluadores_registrados)} evaluador(es):")
-                        for ev_nom in evaluadores_registrados:
-                            st.write(f"- {ev_nom}")
-                            
+                        evaluadores_registrados = list(dict.fromkeys(r[0] for r in registros))
+                        st.success(f"📋 Evaluaciones registradas de {len(evaluadores_registrados)} evaluador(es): {', '.join(evaluadores_registrados)}")
+                        
+                        # Priorizar la lista de los 3 docentes configurados en el tribunal
+                        tribunal_para_acta = docentes_p[:3] if len(docentes_p) >= 3 else evaluadores_registrados
+                        
+                        # Promediar los 21 indicadores del trabajo escrito
                         listas_indicadores = []
                         for r in registros:
-                            if r[1]:
+                            if r[2]:
                                 try:
-                                    listas_indicadores.append(json.loads(r[1]))
+                                    listas_indicadores.append(json.loads(r[2]))
                                 except Exception:
                                     pass
                                     
@@ -712,15 +823,31 @@ with pestana_admin:
                             for i in range(21):
                                 notas_21_prom[i] = round(sum(l[i] for l in listas_indicadores if i < len(l)) / num_listas, 2)
                         
-                        prom_sust = round(sum(r[2] for r in registros) / len(registros), 2)
-                        prom_interrog = round(sum(r[3] for r in registros) / len(registros), 2)
-                        prom_estrateg = round(sum(r[4] for r in registros) / len(registros), 2)
-                        prom_diferenc = round(sum(r[5] for r in registros) / len(registros), 2)
-                        notas_oral_4 = [prom_sust, prom_interrog, prom_estrateg, prom_diferenc]
-                        
-                        fecha_acta = registros[0][6] if registros[0][6] else datetime.now().strftime("%d de %B de %Y")
-                        tema_acta = temas_p.get(grp_acta, "Proyecto Integrador de Análisis Criminal")
+                        # Calcular promedio oral individual por cada alumno del grupo
                         integrantes_acta = grupos_p.get(grp_acta, [])
+                        desglose_alumnos = []
+                        for al_nombre in integrantes_acta:
+                            evals_al = [r for r in registros if r[1] == al_nombre]
+                            if evals_al:
+                                p_sust = round(sum(r[3] for r in evals_al) / len(evals_al), 2)
+                                p_interrog = round(sum(r[4] for r in evals_al) / len(evals_al), 2)
+                                p_estrateg = round(sum(r[5] for r in evals_al) / len(evals_al), 2)
+                                p_diferenc = round(sum(r[6] for r in evals_al) / len(evals_al), 2)
+                                p_tot_oral = round(sum(r[7] for r in evals_al) / len(evals_al), 2)
+                            else:
+                                p_sust = p_interrog = p_estrateg = p_diferenc = p_tot_oral = 0.0
+                                
+                            desglose_alumnos.append({
+                                "nombre": al_nombre,
+                                "sust": p_sust,
+                                "interrog": p_interrog,
+                                "estrateg": p_estrateg,
+                                "diferenc": p_diferenc,
+                                "total_oral": p_tot_oral
+                            })
+                        
+                        fecha_acta = registros[0][8] if registros[0][8] else datetime.now().strftime("%d de %B de %Y")
+                        tema_acta = temas_p.get(grp_acta, "Proyecto Integrador de Análisis Criminal")
                         
                         acta_bytes = generar_acta_docx_oficial(
                             plantilla_path=plantilla_oficial,
@@ -729,9 +856,9 @@ with pestana_admin:
                             tema_caso=tema_acta,
                             fecha_str=fecha_acta,
                             integrantes=integrantes_acta,
-                            tribunal_nombres=evaluadores_registrados,
+                            tribunal_nombres=tribunal_para_acta,
                             notas_escrito_21=notas_21_prom,
-                            notas_oral_4=notas_oral_4
+                            desglose_alumnos=desglose_alumnos
                         )
                         
                         st.download_button(
@@ -744,8 +871,9 @@ with pestana_admin:
                     else:
                         st.warning(f"Aún no hay calificaciones registradas para el {grp_acta}.")
                 else:
-                    st.info(f"No hay grupos registrados en el {paralelo_sel}.")
+                    st.info(f"No hay grupos registrados en el {par_acta}.")
 
+        # SUB-PESTAÑA 3: GESTIÓN DE DOCENTES, GRUPOS Y CURSANTES DINÁMICOS
         with tabs_admin[2]:
             st.markdown("### 👥 Configuración de Nóminas y Tribunales")
             paralelo_gestionar = st.selectbox("Seleccione el Paralelo a configurar:", PARALELOS_DISPONIBLES)
@@ -786,8 +914,8 @@ with pestana_admin:
                     tema_grupo = st.text_input("Tema del Caso Analizado (ej. Análisis de Redes de Vínculos):")
                     alumnos_texto = st.text_area(
                         "Integrantes (escriba o pegue un nombre con grado por línea, de 4 a 6):",
-                        help="Ejemplo:\\nSgto. Juan Pérez\\nCbos. Carlos Ruiz\\nPoli. Ana Gómez",
-                        placeholder="Sgto. Juan Pérez\\nCbos. Carlos Ruiz\\nPoli. Ana Gómez\\nPoli. Luis Castro"
+                        help="Ejemplo:\nSgto. Juan Pérez\nCbos. Carlos Ruiz\nPoli. Ana Gómez",
+                        placeholder="Sgto. Juan Pérez\nCbos. Carlos Ruiz\nPoli. Ana Gómez\nPoli. Luis Castro"
                     )
                     btn_grupo = st.form_submit_button("➕ Registrar Grupo y Alumnos")
                     
