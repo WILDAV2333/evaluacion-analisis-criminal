@@ -6,11 +6,11 @@ import io
 import os
 from datetime import datetime
 import docx
-from docx.shared import Inches, Pt, RGBColor
+from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
-from docx.oxml import OxmlElement, parse_xml
-from docx.oxml.ns import nsdecls, qn
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.oxml import parse_xml
+from docx.oxml.ns import nsdecls
 
 # Configuración visual para pantallas móviles y de escritorio
 st.set_page_config(
@@ -320,7 +320,7 @@ PUNTOS_ORAL = {
 }
 
 # -------------------------------------------------------------
-# FUNCIÓN GENERADORA DEL ACTA OFICIAL DOCX COMPLETA
+# FUNCIÓN GENERADORA DEL ACTA OFICIAL DOCX (ESTRUCTURA NUEVA)
 # -------------------------------------------------------------
 def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso, fecha_str, integrantes, tribunal_nombres, notas_escrito_21, desglose_alumnos):
     doc = docx.Document(plantilla_path)
@@ -377,55 +377,28 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
         
     t0.rows[36].cells[2].text = f"{tot_escrito_acum:.2f} / 8 puntos"
     
-    # 3. Tabla 1: Sustentación Oral - Promedio General de Grupo
-    t1 = doc.tables[1]
-    mapa_crit_t1 = [
-        ([2, 3, 4], 5),
-        ([7, 8, 9], 10),
-        ([12, 13, 14], 15),
-        ([17, 18, 19], 20)
-    ]
+    # 3. Eliminar la antigua Tabla 1 (promedio oral de 22 filas) y Tabla 2 (total acumulado)
+    t1_old = doc.tables[1]
+    t2_old = doc.tables[2]
+    t3_firmas = doc.tables[3]
     
-    # Promedios orales del grupo para la tabla base
-    if desglose_alumnos:
-        avg_sust = sum(al["sust"] for al in desglose_alumnos) / len(desglose_alumnos)
-        avg_interrog = sum(al["interrog"] for al in desglose_alumnos) / len(desglose_alumnos)
-        avg_estrateg = sum(al["estrateg"] for al in desglose_alumnos) / len(desglose_alumnos)
-        avg_diferenc = sum(al["diferenc"] for al in desglose_alumnos) / len(desglose_alumnos)
-    else:
-        avg_sust = avg_interrog = avg_estrateg = avg_diferenc = 0.0
-        
-    notas_oral_grupo = [avg_sust, avg_interrog, avg_estrateg, avg_diferenc]
-    tot_oral_acum = 0.0
-    for c_idx, (ind_rows, tot_row) in enumerate(mapa_crit_t1):
-        crit_val = float(notas_oral_grupo[c_idx])
-        val_ind = crit_val / 3.0
-        for r in ind_rows:
-            t1.rows[r].cells[2].text = f"{val_ind:.2f}"
-        t1.rows[tot_row].cells[2].text = f"{crit_val:.2f}"
-        tot_oral_acum += crit_val
-        
-    t1.rows[21].cells[2].text = f"{tot_oral_acum:.2f} / 12 puntos"
+    t1_old._element.getparent().remove(t1_old._element)
+    t2_old._element.getparent().remove(t2_old._element)
     
-    # 4. Tabla 2: Total General del Grupo
-    t2 = doc.tables[2]
-    tot_general = tot_escrito_acum + tot_oral_acum
-    t2.rows[0].cells[1].text = f"{tot_general:.2f} / 20 puntos"
+    # 4. Insertar el encabezado oficial de la PARTE II antes de la tabla de firmas
+    p_head = doc.add_paragraph()
+    p_head.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_head.paragraph_format.space_before = Pt(14)
+    p_head.paragraph_format.space_after = Pt(6)
+    r_head = p_head.add_run("PARTE II: SUSTENTACIÓN ORAL, DEFENSA E INTERROGATORIO (Sobre 12 Puntos)")
+    r_head.bold = True
+    r_head.font.size = Pt(10)
+    r_head.font.name = "Arial"
+    t3_firmas._element.addprevious(p_head._element)
     
-    # 5. INSERCIÓN DE LA TABLA INDIVIDUALIZADA DE SUSTENTACIÓN ORAL
-    # Insertar párrafo de título antes de la tabla de firmas
-    p_individual = doc.add_paragraph()
-    p_individual.paragraph_format.space_before = Pt(14)
-    p_individual.paragraph_format.space_after = Pt(6)
-    r_ind = p_individual.add_run("CUADRO DE CALIFICACIÓN INDIVIDUALIZADA DE LA SUSTENTACIÓN ORAL Y NOTA FINAL")
-    r_ind.bold = True
-    r_ind.font.size = Pt(10)
-    r_ind.font.name = "Arial"
-    p_individual.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
-    # Crear tabla con 10 columnas oficiales
+    # 5. Insertar la nueva Tabla Individual (Imagen 2) con las 10 columnas exactas
     columnas_indiv = [
-        "Ord.", "Grado", "Nombres y Apellidos", 
+        "Ord.", "Grado", "Nombres y\nApellidos", 
         "Sustentación\n(3.00)", "Interrogatorio\n(3.00)", 
         "Análisis Estrat.\n(3.00)", "Elem. Diferenc.\n(3.00)", 
         "TOTAL ORAL\n(12.00)", "TRABAJO ESCRITO\n(8.00)", "CALIFICACIÓN FINAL\n(20.00)"
@@ -433,10 +406,12 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
     
     num_filas = len(desglose_alumnos) + 1
     t_indiv = doc.add_table(rows=num_filas, cols=10)
-    t_indiv.alignment = WD_TABLE_ALIGNMENT.CENTER
     t_indiv.style = "Table Grid"
+    t_indiv.alignment = WD_TABLE_ALIGNMENT.CENTER
     
-    # Cabecera de la tabla individual
+    col_widths = [0.4, 0.6, 1.8, 0.6, 0.65, 0.6, 0.6, 0.65, 0.65, 0.75]
+    
+    # Encabezados con fondo suave
     hdr_cells = t_indiv.rows[0].cells
     for c_i, col_name in enumerate(columnas_indiv):
         hdr_cells[c_i].text = col_name
@@ -449,7 +424,7 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
             run.font.size = Pt(7.5)
             run.font.name = "Arial"
             
-    # Llenado de filas de cada integrante
+    # Filas de los cursantes
     for row_i, al in enumerate(desglose_alumnos, start=1):
         row_cells = t_indiv.rows[row_i].cells
         grado, nombres = separar_grado_nombre(al["nombre"])
@@ -476,17 +451,20 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
                 run.font.name = "Arial"
                 if c_i in [7, 8, 9]:
                     run.font.bold = True
-
-    # 6. Tabla 3: Cuadro de Firmas Oficial (3 Miembros del Tribunal)
-    t3 = doc.tables[3]
-    t3.rows[0].cells[0].text = "\n\n\n\n___________________________\nFirma: Evaluador 1\nNombres: " + (tribunal_nombres[0] if len(tribunal_nombres) > 0 else "………………………")
-    t3.rows[0].cells[1].text = "\n\n\n\n___________________________\nFirma: Evaluador 2\nNombres: " + (tribunal_nombres[1] if len(tribunal_nombres) > 1 else "………………………")
+                    
+    for row in t_indiv.rows:
+        for idx, width in enumerate(col_widths):
+            row.cells[idx].width = Inches(width)
+            
+    t3_firmas._element.addprevious(t_indiv._element)
     
-    # Fila 1 es combinada única: NO tocar cells[1] para no borrar cells[0]
-    t3.rows[1].cells[0].text = "\n\n\n\n___________________________\nFirma: Evaluador 3\nNombres: " + (tribunal_nombres[2] if len(tribunal_nombres) > 2 else "………………………")
+    # 6. Tabla de Firmas (Garantizar los 3 evaluadores completos)
+    firma_base = "\n\n\n\n___________________________\nFirma: Evaluador "
+    t3_firmas.rows[0].cells[0].text = f"{firma_base}1\nNombres: {tribunal_nombres[0] if len(tribunal_nombres) > 0 else '………………………'}"
+    t3_firmas.rows[0].cells[1].text = f"{firma_base}2\nNombres: {tribunal_nombres[1] if len(tribunal_nombres) > 1 else '………………………'}"
+    t3_firmas.rows[1].cells[0].text = f"{firma_base}3\nNombres: {tribunal_nombres[2] if len(tribunal_nombres) > 2 else '………………………'}"
     
-    # Centrar texto de las firmas
-    for row in t3.rows:
+    for row in t3_firmas.rows:
         for cell in row.cells:
             for p in cell.paragraphs:
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -777,7 +755,7 @@ with pestana_admin:
         # SUB-PESTAÑA 2: GENERACIÓN DE ACTAS OFICIALES EN WORD (.DOCX)
         with tabs_admin[1]:
             st.markdown("### 🖨️ Generación de Actas Físicas Oficiales (Formato Institucional Word)")
-            st.caption("Consolida automáticamente las notas emitidas por los miembros del tribunal calificador.")
+            st.caption("Consolida automáticamente las notas individuales y grupales para la emisión del acta oficial.")
             
             plantilla_oficial = "INDICADORES PARA EVALUACIÓN DEL EJERCICIO PRACTICO.docx"
             if not os.path.exists(plantilla_oficial):
@@ -805,10 +783,10 @@ with pestana_admin:
                         evaluadores_registrados = list(dict.fromkeys(r[0] for r in registros))
                         st.success(f"📋 Evaluaciones registradas de {len(evaluadores_registrados)} evaluador(es): {', '.join(evaluadores_registrados)}")
                         
-                        # Priorizar la lista de los 3 docentes configurados en el tribunal
+                        # Garantizar que se listen los 3 miembros del tribunal
                         tribunal_para_acta = docentes_p[:3] if len(docentes_p) >= 3 else evaluadores_registrados
                         
-                        # Promediar los 21 indicadores del trabajo escrito
+                        # Promediar los 21 indicadores del trabajo escrito grupal
                         listas_indicadores = []
                         for r in registros:
                             if r[2]:
