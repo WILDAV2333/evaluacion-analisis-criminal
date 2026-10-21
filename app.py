@@ -755,7 +755,40 @@ with pestana_evaluar:
             evaluaciones_orales = []
             
             for i, alumno in enumerate(alumnos_activos):
-                with st.expander(f"👤 Integrante {i+1}: {alumno}", expanded=True):
+                with st.expander(f"🎓 EVALUACIÓN INDIVIDUAL ➔ Integrante {i+1}: {alumno.upper()}", expanded=True):
+                    st.markdown(f"""
+                        <div style="
+                            background: linear-gradient(90deg, #00204A 0%, #083370 100%);
+                            padding: 14px 18px;
+                            border-radius: 8px;
+                            border-left: 6px solid #D97706;
+                            margin-bottom: 16px;
+                            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+                        ">
+                            <span style="
+                                background-color: rgba(217, 119, 6, 0.25);
+                                color: #FBBF24;
+                                font-size: 0.78rem;
+                                font-weight: 700;
+                                letter-spacing: 1.2px;
+                                text-transform: uppercase;
+                                padding: 3px 8px;
+                                border-radius: 4px;
+                            ">
+                                Calificación Individual del Cursante
+                            </span>
+                            <h2 style="
+                                margin: 6px 0 0 0;
+                                color: #FFFFFF;
+                                font-size: 1.35rem;
+                                font-weight: 700;
+                                letter-spacing: -0.3px;
+                            ">
+                                👤 {alumno}
+                            </h2>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
                     al_notas = {}
                     al_completo = True
                     
