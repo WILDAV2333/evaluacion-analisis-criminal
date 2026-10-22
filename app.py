@@ -884,72 +884,66 @@ with pestana_evaluar:
     paralelo_sel = st.selectbox(
         "Seleccione el Paralelo:",
         PARALELOS_DISPONIBLES,
-        index=0
+        index=0,
+        key="paralelo_activo_select"
     )
     
     col_eval, col_grp = st.columns(2)
-    evaluador_activo = None
-    grupo_activo = None
-    alumnos_activos = []
-    tema_activo = ""
-    docentes_paralelo = []
-    grupos_paralelo = {}
-    temas_paralelo = {}
-    es_supletorio = False
+    docentes_paralelo, grupos_paralelo, temas_paralelo = cargar_configuracion(paralelo_sel)
     
-    if paralelo_sel:
-        docentes_paralelo, grupos_paralelo, temas_paralelo = cargar_configuracion(paralelo_sel)
+    with col_eval:
+        evaluador_activo = st.selectbox(
+            f"Miembro del Tribunal ({paralelo_sel}):",
+            docentes_paralelo,
+            index=None,
+            placeholder="Seleccione su nombre...",
+            key="evaluador_activo_select"
+        )
+            
+    with col_grp:
+        grupo_activo = None
+        alumnos_activos = []
+        tema_activo = ""
+        es_supletorio = False
         
-        with col_eval:
-            if docentes_paralelo:
-                evaluador_activo = st.selectbox(
-                    f"Miembro del Tribunal ({paralelo_sel}):",
-                    docentes_paralelo,
+        if evaluador_activo:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT DISTINCT grupo FROM evaluaciones 
+                WHERE paralelo = ? AND evaluador = ?
+            """, (paralelo_sel, evaluador_activo))
+            grupos_ya_calificados = [r[0] for r in cursor.fetchall()]
+            
+            grupos_ordinarios_pendientes = [g for g in grupos_paralelo.keys() if g not in grupos_ya_calificados]
+            supletorios_dict = obtener_supletorios_pendientes(paralelo_sel, grupos_paralelo)
+            grupos_supletorio_pendientes = [s for s in supletorios_dict.keys() if s not in grupos_ya_calificados]
+            
+            opciones_grupo = grupos_ordinarios_pendientes + grupos_supletorio_pendientes
+            
+            if opciones_grupo:
+                grupo_activo = st.selectbox(
+                    "Grupo a Evaluar (Pendientes de su calificación):",
+                    opciones_grupo,
                     index=None,
-                    placeholder="Seleccione su nombre..."
+                    placeholder="Seleccione el grupo a calificar...",
+                    key=f"grupo_select_{paralelo_sel}_{evaluador_activo}"
                 )
+                if grupo_activo:
+                    if grupo_activo in grupos_paralelo:
+                        es_supletorio = False
+                        alumnos_activos = grupos_paralelo[grupo_activo]
+                        tema_activo = temas_paralelo.get(grupo_activo, "Caso Práctico Integrador")
+                    elif grupo_activo in supletorios_dict:
+                        es_supletorio = True
+                        alumnos_activos = supletorios_dict[grupo_activo]["alumnos"]
+                        tema_activo = supletorios_dict[grupo_activo]["tema"]
             else:
-                st.warning(f"No hay evaluadores asignados al {paralelo_sel}.")
+                st.success(f"👏 ¡Estimado/a {evaluador_activo}, usted ha completado todas las evaluaciones asignadas en el {paralelo_sel}!")
                 
-        with col_grp:
-            if grupos_paralelo and evaluador_activo:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT DISTINCT grupo FROM evaluaciones 
-                    WHERE paralelo = ? AND evaluador = ?
-                """, (paralelo_sel, evaluador_activo))
-                grupos_ya_calificados = [r[0] for r in cursor.fetchall()]
-                
-                grupos_ordinarios_pendientes = [g for g in grupos_paralelo.keys() if g not in grupos_ya_calificados]
-                
-                supletorios_dict = obtener_supletorios_pendientes(paralelo_sel, grupos_paralelo)
-                grupos_supletorio_pendientes = [s for s in supletorios_dict.keys() if s not in grupos_ya_calificados]
-                
-                opciones_grupo = grupos_ordinarios_pendientes + grupos_supletorio_pendientes
-                
-                if opciones_grupo:
-                    grupo_activo = st.selectbox(
-                        "Grupo a Evaluar (Pendientes de su calificación):",
-                        opciones_grupo,
-                        index=None,
-                        placeholder="Seleccione el grupo a calificar..."
-                    )
-                    if grupo_activo:
-                        if grupo_activo in grupos_paralelo:
-                            es_supletorio = False
-                            alumnos_activos = grupos_paralelo[grupo_activo]
-                            tema_activo = temas_paralelo.get(grupo_activo, "Caso Práctico Integrador")
-                        elif grupo_activo in supletorios_dict:
-                            es_supletorio = True
-                            alumnos_activos = supletorios_dict[grupo_activo]["alumnos"]
-                            tema_activo = supletorios_dict[grupo_activo]["tema"]
-                else:
-                    st.success(f"👏 ¡Estimado/a {evaluador_activo}, usted ha completado todas las evaluaciones asignadas en el {paralelo_sel}!")
-                    
-                if grupos_ya_calificados:
-                    st.caption(f"🔒 Evaluaciones ya registradas por usted: {', '.join(grupos_ya_calificados)}")
-            elif not evaluador_activo:
-                st.info("👆 Seleccione primero su nombre como Miembro del Tribunal.")
+            if grupos_ya_calificados:
+                st.caption(f"🔒 Evaluaciones ya registradas por usted: {', '.join(grupos_ya_calificados)}")
+        else:
+            st.info("👆 Seleccione primero su nombre como Miembro del Tribunal.")
 
     # Módulo de transparencia y consulta consolidada
     if paralelo_sel and grupos_paralelo:
@@ -981,10 +975,10 @@ with pestana_evaluar:
                 else:
                     st.warning("Este grupo aún no tiene calificaciones registradas.")
 
-    # Pantalla de confirmación tras registrar con éxito
+    # Panel de confirmación tras registrar con éxito
     if "grupo_evaluado_exito" in st.session_state:
         p_eval, g_eval = st.session_state["grupo_evaluado_exito"]
-        st.success(f"✅ ¡EVALUACIÓN DE **{g_eval}** ({p_eval}) REGISTRADA CORRECTAMENTE!")
+        st.success(f"✅ ¡EVALUACIÓN DE **{g_eval}** ({p_eval}) REGISTRADA CORRECTAMENTE EN EL SISTEMA!")
         
         docentes_p_check, grupos_p_check, _ = cargar_configuracion(p_eval)
         df_cuadro_check, cant_evals_check, lista_evals_check = calcular_cuadro_consolidado_grupo(p_eval, g_eval, grupos_p_check)
@@ -1004,15 +998,16 @@ with pestana_evaluar:
                     key="btn_dl_post_eval"
                 )
             else:
-                st.warning(f"⏳ Calificación personal registrada con éxito. Han calificado {cant_evals_check} de {total_tribunal_necesario} miembros del tribunal.")
+                st.warning(f"⏳ Su calificación ha sido guardada. Han calificado {cant_evals_check} de {total_tribunal_necesario} miembros del tribunal.")
                 
-        if st.button("➔ Evaluar Siguiente Grupo", use_container_width=True):
+        if st.button("➔ Calificar Siguiente Grupo", use_container_width=True):
             del st.session_state["grupo_evaluado_exito"]
             st.rerun()
 
     # Formulario activo de calificación
     elif grupo_activo:
-        with st.form("form_calificacion"):
+        clave_formulario = f"form_eval_{paralelo_sel}_{evaluador_activo}_{grupo_activo}"
+        with st.form(clave_formulario):
             respuestas_escrito = []
             campos_faltantes = []
             
@@ -1051,7 +1046,7 @@ with pestana_evaluar:
                                     OPCIONES_NIVEL,
                                     index=None,
                                     placeholder="-- Seleccione calificación --",
-                                    key=f"esc_{c_idx}_{ind_idx}",
+                                    key=f"esc_{paralelo_sel}_{grupo_activo}_{c_idx}_{ind_idx}",
                                     label_visibility="collapsed"
                                 )
                                 if opc_sel is not None:
@@ -1118,7 +1113,7 @@ with pestana_evaluar:
                                 OPCIONES_NIVEL,
                                 index=None,
                                 horizontal=True,
-                                key=f"oral_{i}_{o_idx}",
+                                key=f"oral_{paralelo_sel}_{grupo_activo}_{i}_{o_idx}",
                                 label_visibility="collapsed"
                             )
                             if calif_oral is None:
