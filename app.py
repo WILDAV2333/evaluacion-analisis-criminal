@@ -4,7 +4,7 @@ import sqlite3
 import json
 import io
 import os
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import docx
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -20,6 +20,25 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+# Zona horaria oficial de Ecuador (UTC-5)
+TZ_ECUADOR = timezone(timedelta(hours=-5))
+
+def obtener_fecha_hora_ecuador():
+    return datetime.now(TZ_ECUADOR).strftime("%Y-%m-%d %H:%M:%S")
+
+def formatear_fecha_acta(fecha_str):
+    meses = {
+        1: "enero", 2: "febrero", 3: "marzo", 4: "abril",
+        5: "mayo", 6: "junio", 7: "julio", 8: "agosto",
+        9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre"
+    }
+    try:
+        dt = datetime.strptime(fecha_str.strip(), "%Y-%m-%d %H:%M:%S")
+        return f"{dt.day} de {meses[dt.month]} de {dt.year}, {dt.strftime('%H:%M')}"
+    except Exception:
+        dt_ahora = datetime.now(TZ_ECUADOR)
+        return f"{dt_ahora.day} de {meses[dt_ahora.month]} de {dt_ahora.year}, {dt_ahora.strftime('%H:%M')}"
 
 # -------------------------------------------------------------
 # CONFIGURACIÓN MAESTRA PRECARGADA (NUNCA SE BORRA ANTE INACTIVIDAD)
@@ -585,7 +604,8 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
             doc.paragraphs[p_idx].text = f"{i+1}. ----------------------------------------"
             
     doc.paragraphs[12].text = f"Tema del Caso Analizado: {tema_caso}"
-    doc.paragraphs[13].text = f"Fecha: {fecha_str}"
+    # Formatear fecha en formato oficial ecuatoriano
+    doc.paragraphs[13].text = f"Fecha: {formatear_fecha_acta(fecha_str)}"
     
     for i in range(3):
         p_idx = 15 + i
@@ -1007,7 +1027,7 @@ with pestana_evaluar:
                 else:
                     st.warning("Este grupo aún no tiene calificaciones registradas.")
 
-    # Panel posterior a la calificación: NO revela notas inmediatamente
+    # Panel posterior a la calificación
     if "grupo_evaluado_exito" in st.session_state:
         p_eval, g_eval = st.session_state["grupo_evaluado_exito"]
         st.success(f"✅ ¡SU EVALUACIÓN PARA **{g_eval}** ({p_eval}) HA SIDO GUARDADA CORRECTAMENTE!")
@@ -1018,7 +1038,6 @@ with pestana_evaluar:
         
         st.info(f"📊 **Estado actual del Tribunal para {g_eval}:** Han evaluado **{cant_evals_check} de {total_tribunal_necesario}** miembros ({', '.join(lista_evals_check)}).")
         
-        # Botón para actualizar y verificar si ya están los 3 miembros
         if st.button("🔄 Actualizar y Consultar Calificaciones Consolidadas (Requiere los 3 Miembros)", use_container_width=True):
             st.session_state["ver_calificaciones_promediadas"] = True
             
@@ -1223,7 +1242,8 @@ with pestana_evaluar:
                             subtotal_escrito_aplicar = round(sum(respuestas_escrito), 2)
                             detalles_escrito_json_aplicar = json.dumps(respuestas_escrito)
                             
-                        fecha_reg = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        # FECHA Y HORA EXACTA DE ECUADOR (UTC-5)
+                        fecha_reg = obtener_fecha_hora_ecuador()
                         
                         for ev in evaluaciones_orales:
                             nota_total_calc = round(subtotal_escrito_aplicar + ev["subtotal_oral"], 2)
@@ -1373,7 +1393,7 @@ with pestana_admin:
                     st.download_button(
                         label=f"📊 Descargar Resumen en Excel (.xlsx) - {filtro_admin_g}",
                         data=excel_data,
-                        file_name=f"Acta_{filtro_admin_p.replace(' ', '_')}_{filtro_admin_g.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                        file_name=f"Acta_{filtro_admin_p.replace(' ', '_')}_{filtro_admin_g.replace(' ', '_')}_{datetime.now(TZ_ECUADOR).strftime('%Y%m%d_%H%M')}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True
                     )
@@ -1469,7 +1489,7 @@ with pestana_admin:
                                 "total_oral": p_tot_oral
                             })
                         
-                        fecha_acta = registros[0][8] if registros[0][8] else datetime.now().strftime("%d de %B de %Y")
+                        fecha_acta = registros[0][8] if registros[0][8] else obtener_fecha_hora_ecuador()
                         tema_acta = temas_p.get(grp_acta, "Proyecto Integrador de Análisis Criminal")
                         if grp_acta in supletorios_act:
                             tema_acta = supletorios_act[grp_acta]["tema"]
