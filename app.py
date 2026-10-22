@@ -30,7 +30,6 @@ DATOS_PRECONFIGURADOS = {
             "Sgos. Freddy Andrés Loza Barrionuevo",
             "Dr. Galo Alexander Quiñones Escuntar",
             "Dra. Nora Alexandra Mantilla Allan",
-            "Mayor Patricio Ramos (Suplente)"
         ],
         "grupos": {
             "Grupo Nro. 1": {
@@ -93,7 +92,6 @@ DATOS_PRECONFIGURADOS = {
             "Mayr. Mauro Napoleon Gavilanez Ortega",
             "Dra. Silvana Alexandra Sandoval Meléndez",
             "Dra. Elisa Margarita Fiallos Montaleza",
-            "Mayor Patricio Ramos (Suplente)"
         ],
         "grupos": {
             "Grupo Nro. 1": {
