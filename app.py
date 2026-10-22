@@ -196,7 +196,6 @@ def get_db():
         )
     """)
     
-    # Auto-actualizar o precargar si no existen
     cursor.execute("SELECT COUNT(*) FROM config_docentes")
     if cursor.fetchone()[0] == 0:
         for par, data in DATOS_PRECONFIGURADOS.items():
@@ -474,12 +473,21 @@ def generar_excel_cuadro_individual(df_cuadro, nombre_grupo, paralelo):
     ws = wb.active
     ws.title = "Consolidado"
     
-    headers = [
-        "Ord.", "Grado", "Nombres y Apellidos", 
-        "Sustentación (3.00)", "Interrogatorio (3.00)", 
-        "Análisis Estrat. (3.00)", "Elem. Diferenc. (3.00)", 
-        "TOTAL ORAL (12.00)", "TRABAJO ESCRITO (8.00)", "CALIFICACIÓN FINAL (20.00)"
-    ]
+    es_suplet = "Supletorio" in str(nombre_grupo)
+    if es_suplet:
+        headers = [
+            "Ord.", "Grado", "Nombres y Apellidos", 
+            "Sustentación (3.00)", "Interrogatorio (3.00)", 
+            "Análisis Estrat. (3.00)", "Elem. Diferenc. (3.00)", 
+            "TOTAL ORAL (12.00)", "TRABAJO ESCRITO (8.00)", "CALIFICACIÓN SUPLETORIO", "CALIFICACIÓN FINAL (MÁX. 14.00)"
+        ]
+    else:
+        headers = [
+            "Ord.", "Grado", "Nombres y Apellidos", 
+            "Sustentación (3.00)", "Interrogatorio (3.00)", 
+            "Análisis Estrat. (3.00)", "Elem. Diferenc. (3.00)", 
+            "TOTAL ORAL (12.00)", "TRABAJO ESCRITO (8.00)", "CALIFICACIÓN FINAL (20.00)"
+        ]
     ws.append(headers)
     
     fill_header = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
@@ -506,27 +514,45 @@ def generar_excel_cuadro_individual(df_cuadro, nombre_grupo, paralelo):
     ws.row_dimensions[1].height = 28
     
     for idx, row in df_cuadro.iterrows():
-        ws.append([
-            row["Ord."],
-            row["Grado"],
-            row["Nombres y Apellidos"],
-            round(float(row["Sustentación (3.00)"]), 2),
-            round(float(row["Interrogatorio (3.00)"]), 2),
-            round(float(row["Análisis Estrat. (3.00)"]), 2),
-            round(float(row["Elem. Diferenc. (3.00)"]), 2),
-            round(float(row["TOTAL ORAL (12.00)"]), 2),
-            round(float(row["TRABAJO ESCRITO (8.00)"]), 2),
-            round(float(row["CALIFICACIÓN FINAL (20.00)"]), 2)
-        ])
+        if es_suplet:
+            ws.append([
+                row["Ord."],
+                row["Grado"],
+                row["Nombres y Apellidos"],
+                round(float(row["Sustentación (3.00)"]), 2),
+                round(float(row["Interrogatorio (3.00)"]), 2),
+                round(float(row["Análisis Estrat. (3.00)"]), 2),
+                round(float(row["Elem. Diferenc. (3.00)"]), 2),
+                round(float(row["TOTAL ORAL (12.00)"]), 2),
+                round(float(row["TRABAJO ESCRITO (8.00)"]), 2),
+                round(float(row["CALIFICACIÓN SUPLETORIO"]), 2),
+                round(float(row["CALIFICACIÓN FINAL (MÁX. 14.00)"]), 2)
+            ])
+            num_cols = 11
+        else:
+            ws.append([
+                row["Ord."],
+                row["Grado"],
+                row["Nombres y Apellidos"],
+                round(float(row["Sustentación (3.00)"]), 2),
+                round(float(row["Interrogatorio (3.00)"]), 2),
+                round(float(row["Análisis Estrat. (3.00)"]), 2),
+                round(float(row["Elem. Diferenc. (3.00)"]), 2),
+                round(float(row["TOTAL ORAL (12.00)"]), 2),
+                round(float(row["TRABAJO ESCRITO (8.00)"]), 2),
+                round(float(row["CALIFICACIÓN FINAL (20.00)"]), 2)
+            ])
+            num_cols = 10
+            
         curr_r = ws.max_row
         ws.row_dimensions[curr_r].height = 20
-        for col_num in range(1, 11):
+        for col_num in range(1, num_cols + 1):
             c = ws.cell(row=curr_r, column=col_num)
             c.border = thin_border
-            c.font = font_bold if col_num in [8, 9, 10] else font_regular
+            c.font = font_bold if col_num in [8, 9, 10, 11] else font_regular
             c.alignment = align_left if col_num == 3 else align_center
             
-    widths = [6, 10, 36, 16, 16, 16, 16, 16, 18, 22]
+    widths = [6, 10, 36, 16, 16, 16, 16, 16, 18, 22, 22] if es_suplet else [6, 10, 36, 16, 16, 16, 16, 16, 18, 22]
     for i, w in enumerate(widths, start=1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
         
@@ -598,25 +624,40 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
     p_head.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_head.paragraph_format.space_before = Pt(14)
     p_head.paragraph_format.space_after = Pt(6)
-    r_head = p_head.add_run("FASE II: SUSTENTACIÓN ORAL, DEFENSA E INTERROGATORIO (Sobre 12 Puntos)")
+    
+    es_suplet = "Supletorio" in str(grupo_nombre)
+    if es_suplet:
+        r_head = p_head.add_run("FASE II: SUSTENTACIÓN ORAL - EVALUACIÓN SUPLETORIA (Sobre 12 Puntos)")
+    else:
+        r_head = p_head.add_run("FASE II: SUSTENTACIÓN ORAL, DEFENSA E INTERROGATORIO (Sobre 12 Puntos)")
     r_head.bold = True
     r_head.font.size = Pt(10)
     r_head.font.name = "Arial"
     t3_firmas._element.addprevious(p_head._element)
     
-    columnas_indiv = [
-        "Ord.", "Grado", "Nombres y Apellidos", 
-        "Sustentación (3.00)", "Interrogatorio (3.00)", 
-        "Análisis Estrat. (3.00)", "Elem. Diferenc. (3.00)", 
-        "TOTAL ORAL (12.00)", "TRABAJO ESCRITO (8.00)", "CALIFICACIÓN FINAL (20.00)"
-    ]
+    if es_suplet:
+        columnas_indiv = [
+            "Ord.", "Grado", "Nombres y Apellidos",
+            "Sustentación (3.00)", "Interrogatorio (3.00)",
+            "Análisis Estrat. (3.00)", "Elem. Diferenc. (3.00)",
+            "TOTAL ORAL (12.00)", "TRABAJO ESCRITO (8.00)", "CALIF. SUPLETORIO", "CALIF. FINAL (MÁX. 14)"
+        ]
+        num_cols = 11
+        col_widths = [0.35, 0.55, 1.6, 0.55, 0.55, 0.55, 0.55, 0.6, 0.6, 0.7, 0.7]
+    else:
+        columnas_indiv = [
+            "Ord.", "Grado", "Nombres y Apellidos",
+            "Sustentación (3.00)", "Interrogatorio (3.00)",
+            "Análisis Estrat. (3.00)", "Elem. Diferenc. (3.00)",
+            "TOTAL ORAL (12.00)", "TRABAJO ESCRITO (8.00)", "CALIFICACIÓN FINAL (20.00)"
+        ]
+        num_cols = 10
+        col_widths = [0.4, 0.6, 1.8, 0.6, 0.65, 0.6, 0.6, 0.65, 0.65, 0.75]
     
     num_filas = len(desglose_alumnos) + 1
-    t_indiv = doc.add_table(rows=num_filas, cols=10)
+    t_indiv = doc.add_table(rows=num_filas, cols=num_cols)
     t_indiv.style = "Table Grid"
     t_indiv.alignment = WD_TABLE_ALIGNMENT.CENTER
-    
-    col_widths = [0.4, 0.6, 1.8, 0.6, 0.65, 0.6, 0.6, 0.65, 0.65, 0.75]
     
     hdr_cells = t_indiv.rows[0].cells
     for c_i, col_name in enumerate(columnas_indiv):
@@ -627,34 +668,51 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         for run in p.runs:
             run.font.bold = True
-            run.font.size = Pt(7.5)
+            run.font.size = Pt(7.0 if es_suplet else 7.5)
             run.font.name = "Arial"
             
     for row_i, al in enumerate(desglose_alumnos, start=1):
         row_cells = t_indiv.rows[row_i].cells
         grado, nombres = separar_grado_nombre(al["nombre"])
         
-        datos_fila = [
-            str(row_i),
-            grado,
-            nombres,
-            f"{al['sust']:.2f}",
-            f"{al['interrog']:.2f}",
-            f"{al['estrateg']:.2f}",
-            f"{al['diferenc']:.2f}",
-            f"{al['total_oral']:.2f}",
-            f"{tot_escrito_acum:.2f}",
-            f"{(al['total_oral'] + tot_escrito_acum):.2f}"
-        ]
+        suma_obtenida = round(al['total_oral'] + tot_escrito_acum, 2)
+        if es_suplet:
+            nota_final_reg = 14.00 if suma_obtenida >= 14.00 else suma_obtenida
+            datos_fila = [
+                str(row_i),
+                grado,
+                nombres,
+                f"{al['sust']:.2f}",
+                f"{al['interrog']:.2f}",
+                f"{al['estrateg']:.2f}",
+                f"{al['diferenc']:.2f}",
+                f"{al['total_oral']:.2f}",
+                f"{tot_escrito_acum:.2f}",
+                f"{suma_obtenida:.2f}",
+                f"{nota_final_reg:.2f}"
+            ]
+        else:
+            datos_fila = [
+                str(row_i),
+                grado,
+                nombres,
+                f"{al['sust']:.2f}",
+                f"{al['interrog']:.2f}",
+                f"{al['estrateg']:.2f}",
+                f"{al['diferenc']:.2f}",
+                f"{al['total_oral']:.2f}",
+                f"{tot_escrito_acum:.2f}",
+                f"{suma_obtenida:.2f}"
+            ]
         
         for c_i, valor in enumerate(datos_fila):
             row_cells[c_i].text = valor
             p = row_cells[c_i].paragraphs[0]
             p.alignment = WD_ALIGN_PARAGRAPH.LEFT if c_i == 2 else WD_ALIGN_PARAGRAPH.CENTER
             for run in p.runs:
-                run.font.size = Pt(8)
+                run.font.size = Pt(7.5 if es_suplet else 8.0)
                 run.font.name = "Arial"
-                if c_i in [7, 8, 9]:
+                if c_i >= 7:
                     run.font.bold = True
                     
     for row in t_indiv.rows:
@@ -713,6 +771,7 @@ def calcular_cuadro_consolidado_grupo(paralelo, grupo_nombre, grupos_p):
     if not integrantes and regs:
         integrantes = list(dict.fromkeys(r[1] for r in regs))
         
+    es_suplet = "Supletorio" in str(grupo_nombre)
     filas = []
     for idx, al_nom in enumerate(integrantes, start=1):
         evals_al = [r for r in regs if r[1] == al_nom]
@@ -726,19 +785,37 @@ def calcular_cuadro_consolidado_grupo(paralelo, grupo_nombre, grupos_p):
             sust = interrog = estrateg = diferenc = total_oral = 0.0
             
         grado, nombres = separar_grado_nombre(al_nom)
-        nota_final = round(total_oral + tot_escrito, 2)
-        filas.append({
-            "Ord.": idx,
-            "Grado": grado,
-            "Nombres y Apellidos": nombres,
-            "Sustentación (3.00)": sust,
-            "Interrogatorio (3.00)": interrog,
-            "Análisis Estrat. (3.00)": estrateg,
-            "Elem. Diferenc. (3.00)": diferenc,
-            "TOTAL ORAL (12.00)": total_oral,
-            "TRABAJO ESCRITO (8.00)": tot_escrito,
-            "CALIFICACIÓN FINAL (20.00)": nota_final
-        })
+        nota_suma = round(total_oral + tot_escrito, 2)
+        
+        if es_suplet:
+            nota_final_reg = 14.00 if nota_suma >= 14.00 else nota_suma
+            filas.append({
+                "Ord.": idx,
+                "Grado": grado,
+                "Nombres y Apellidos": nombres,
+                "Sustentación (3.00)": sust,
+                "Interrogatorio (3.00)": interrog,
+                "Análisis Estrat. (3.00)": estrateg,
+                "Elem. Diferenc. (3.00)": diferenc,
+                "TOTAL ORAL (12.00)": total_oral,
+                "TRABAJO ESCRITO (8.00)": tot_escrito,
+                "CALIFICACIÓN SUPLETORIO": nota_suma,
+                "CALIFICACIÓN FINAL (MÁX. 14.00)": nota_final_reg
+            })
+        else:
+            filas.append({
+                "Ord.": idx,
+                "Grado": grado,
+                "Nombres y Apellidos": nombres,
+                "Sustentación (3.00)": sust,
+                "Interrogatorio (3.00)": interrog,
+                "Análisis Estrat. (3.00)": estrateg,
+                "Elem. Diferenc. (3.00)": diferenc,
+                "TOTAL ORAL (12.00)": total_oral,
+                "TRABAJO ESCRITO (8.00)": tot_escrito,
+                "CALIFICACIÓN FINAL (20.00)": nota_suma
+            })
+            
     df_cuadro = pd.DataFrame(filas)
     return df_cuadro, cant_evaluadores, evaluadores_registrados
 
@@ -1158,6 +1235,16 @@ with pestana_admin:
                     lista_excel = []
                     for idx, row in resumen.iterrows():
                         grado, nombres_apellidos = separar_grado_nombre(row["alumno"])
+                        es_suplet = "Supletorio" in str(row["grupo"])
+                        nota_obtenida = row["nota_total_prom"]
+                        
+                        if es_suplet:
+                            calif_suplet = nota_obtenida
+                            nota_final_def = 14.00 if nota_obtenida >= 14.00 else nota_obtenida
+                        else:
+                            calif_suplet = "-"
+                            nota_final_def = nota_obtenida
+                            
                         lista_excel.append({
                             "Ord.": idx + 1,
                             "Paralelo": row["paralelo"],
@@ -1166,7 +1253,8 @@ with pestana_admin:
                             "Nombres y Apellidos": nombres_apellidos,
                             "Calificación del Trabajo Escrito": row["nota_escrito_prom"],
                             "Calificación SUSTENTACIÓN ORAL INDIVIDUAL": row["nota_oral_prom"],
-                            "Total Calificación Final": row["nota_total_prom"]
+                            "Calificación Supletorio": calif_suplet,
+                            "Total Calificación Final": nota_final_def
                         })
                     
                     df_oficial = pd.DataFrame(lista_excel)
@@ -1345,12 +1433,12 @@ with pestana_admin:
                     tema_grupo = st.text_input("Tema del Caso Analizado (ej. Análisis de Redes de Vínculos):")
                     alumnos_texto = st.text_area(
                         "Integrantes (un nombre con grado por línea):",
-                        placeholder="Cptn. Garzon Masapanta Henry Rodrigo\nSgos. Cupueran Vallejos Juan Diego"
+                        placeholder="Cptn. Garzon Masapanta Henry Rodrigo\\nSgos. Cupueran Vallejos Juan Diego"
                     )
                     btn_grupo = st.form_submit_button("➕ Registrar Grupo y Alumnos")
                     
                     if btn_grupo:
-                        alumnos_lista = [linea.strip() for linea in alumnos_texto.split("\n") if linea.strip()]
+                        alumnos_lista = [linea.strip() for linea in alumnos_texto.split("\\n") if linea.strip()]
                         if not nom_grupo.strip():
                             st.error("Debe ingresar un nombre para el grupo.")
                         elif len(alumnos_lista) == 0:
@@ -1372,7 +1460,7 @@ with pestana_admin:
                     for g_id, g_nom, g_alums_raw, g_tema in grps_actuales:
                         alums = json.loads(g_alums_raw)
                         with st.expander(f"📁 {g_nom} ({len(alums)} integrantes) - Tema: {g_tema}"):
-                            texto_actual = "\n".join(alums)
+                            texto_actual = "\\n".join(alums)
                             nuevo_tema = st.text_input("Tema del Caso:", value=g_tema, key=f"edit_tema_{g_id}")
                             nuevo_texto_alums = st.text_area(
                                 "Modificar integrantes (un nombre por línea):",
@@ -1381,7 +1469,7 @@ with pestana_admin:
                             )
                             col_guardar, col_borrar = st.columns(2)
                             if col_guardar.button("💾 Guardar Cambios", key=f"btn_save_{g_id}"):
-                                nueva_lista = [l.strip() for l in nuevo_texto_alums.split("\n") if l.strip()]
+                                nueva_lista = [l.strip() for l in nuevo_texto_alums.split("\\n") if l.strip()]
                                 cursor.execute(
                                     "UPDATE config_grupos SET alumnos_json = ?, tema_caso = ? WHERE id = ?",
                                     (json.dumps(nueva_lista), nuevo_tema.strip(), g_id)
