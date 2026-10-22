@@ -491,8 +491,10 @@ def generar_excel_cuadro_individual(df_cuadro, nombre_grupo, paralelo):
     ws.append(headers)
     
     fill_header = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+    fill_alerta = PatternFill(start_color="FCE4D6", end_color="FCE4D6", fill_type="solid")
     font_header = Font(name="Arial", size=10, bold=True)
     font_bold = Font(name="Arial", size=10, bold=True)
+    font_alerta = Font(name="Arial", size=10, bold=True, color="C00000")
     font_regular = Font(name="Arial", size=10, bold=False)
     align_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
     align_left = Alignment(horizontal="left", vertical="center")
@@ -529,6 +531,7 @@ def generar_excel_cuadro_individual(df_cuadro, nombre_grupo, paralelo):
                 round(float(row["CALIFICACIÓN FINAL (MÁX. 14.00)"]), 2)
             ])
             num_cols = 11
+            nota_eval_alerta = float(row["CALIFICACIÓN FINAL (MÁX. 14.00)"])
         else:
             ws.append([
                 row["Ord."],
@@ -543,13 +546,22 @@ def generar_excel_cuadro_individual(df_cuadro, nombre_grupo, paralelo):
                 round(float(row["CALIFICACIÓN FINAL (20.00)"]), 2)
             ])
             num_cols = 10
+            nota_eval_alerta = float(row["CALIFICACIÓN FINAL (20.00)"])
             
         curr_r = ws.max_row
         ws.row_dimensions[curr_r].height = 20
+        tiene_supletorio = (nota_eval_alerta < 14.00)
+        
         for col_num in range(1, num_cols + 1):
             c = ws.cell(row=curr_r, column=col_num)
             c.border = thin_border
-            c.font = font_bold if col_num in [8, 9, 10, 11] else font_regular
+            if tiene_supletorio and col_num == num_cols:
+                c.fill = fill_alerta
+                c.font = font_alerta
+            elif col_num in [8, 9, 10, 11]:
+                c.font = font_bold
+            else:
+                c.font = font_regular
             c.alignment = align_left if col_num == 3 else align_center
             
     widths = [6, 10, 36, 16, 16, 16, 16, 16, 18, 22, 22] if es_suplet else [6, 10, 36, 16, 16, 16, 16, 16, 18, 22]
@@ -819,19 +831,20 @@ def calcular_cuadro_consolidado_grupo(paralelo, grupo_nombre, grupos_p):
     df_cuadro = pd.DataFrame(filas)
     return df_cuadro, cant_evaluadores, evaluadores_registrados
 
+# REQUISITO 1: Crear la carpeta de supletorio ÚNICAMENTE cuando los 3 miembros hayan calificado
 def obtener_supletorios_pendientes(paralelo, grupos_p):
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT grupo, alumno, AVG(nota_total) as promedio_final
+        SELECT grupo, alumno, AVG(nota_total) as promedio_final, COUNT(DISTINCT evaluador) as total_evaluadores
         FROM evaluaciones
         WHERE paralelo = ? AND grupo NOT LIKE 'Supletorio%'
         GROUP BY grupo, alumno
-        HAVING promedio_final < 14.00
+        HAVING total_evaluadores >= 3 AND promedio_final < 14.00
     """, (paralelo,))
     filas = cursor.fetchall()
     
     supletorios = {}
-    for grp, al, prom in filas:
+    for grp, al, prom, cant in filas:
         nom_suplet = f"Supletorio {grp}"
         if nom_suplet not in supletorios:
             supletorios[nom_suplet] = {
@@ -945,7 +958,7 @@ with pestana_evaluar:
         else:
             st.info("👆 Seleccione primero su nombre como Miembro del Tribunal.")
 
-    # Módulo de transparencia y consulta consolidada
+    # Módulo de transparencia y consulta consolidada (Con Alerta y Resaltado en Rojo)
     if paralelo_sel and grupos_paralelo:
         with st.expander("🔍 Ver y Descargar Cuadro Consolidado Oficial (Transparencia)"):
             st.caption("Consulte las calificaciones de los grupos evaluados por el tribunal.")
@@ -957,21 +970,44 @@ with pestana_evaluar:
                 total_tribunal_necesario = 3
                 
                 if df_cuadro_grp is not None and not df_cuadro_grp.empty:
+                    col_nota_final = "CALIFICACIÓN FINAL (MÁX. 14.00)" if "CALIFICACIÓN FINAL (MÁX. 14.00)" in df_cuadro_grp.columns else "CALIFICACIÓN FINAL (20.00)"
+                    
+                    # REQUISITO 3: Alerta con nombres si algún alumno tiene < 14
+                    reprobados = df_cuadro_grp[df_cuadro_grp[col_nota_final] < 14.00]
+                    if not reprobados.empty and cant_evals >= total_tribunal_necesario:
+                        for _, r_rep in reprobados.iterrows():
+                            st.error(f"🚨 **ALERTA DE SUPLETORIO:** El cursante **{r_rep['Grado']} {r_rep['Nombres y Apellidos']}** ha obtenido una calificación de **{r_rep[col_nota_final]:.2f} / 20.00 pts** (Inferior a 14.00). Habilitado automáticamente para examen supletorio.")
+                    elif not reprobados.empty:
+                        for _, r_rep in reprobados.iterrows():
+                            st.warning(f"⚠️ **PROMEDIO PARCIAL BAJO:** El cursante **{r_rep['Grado']} {r_rep['Nombres y Apellidos']}** registra **{r_rep[col_nota_final]:.2f} pts** con {cant_evals}/3 docentes. Se confirmará supletorio una vez que califique el tercer miembro.")
+
                     if cant_evals >= total_tribunal_necesario:
-                        st.success(f"✅ ¡GRUPO COMPLETAMENTE CALIFICADO por el Tribunal ({', '.join(lista_evals)})!")
-                        st.dataframe(df_cuadro_grp, use_container_width=True)
-                        
-                        excel_bytes_indiv = generar_excel_cuadro_individual(df_cuadro_grp, grp_consultar, paralelo_sel)
-                        st.download_button(
-                            label=f"📥 Descargar Cuadro Consolidado en Excel (.xlsx) - {grp_consultar}",
-                            data=excel_bytes_indiv,
-                            file_name=f"Consolidado_{paralelo_sel.replace(' ', '_')}_{grp_consultar.replace(' ', '_')}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True,
-                            key="btn_dl_transp"
-                        )
+                        st.success(f"✅ ¡GRUPO COMPLETAMENTE CALIFICADO por los 3 miembros del Tribunal ({', '.join(lista_evals)})!")
                     else:
-                        st.info(f"⏳ Este grupo cuenta con {cant_evals} de {total_tribunal_necesario} calificaciones: {', '.join(lista_evals)}. El cuadro se activará cuando los 3 miembros completen la evaluación.")
+                        st.info(f"⏳ Calificaciones registradas: {cant_evals} de {total_tribunal_necesario} docentes ({', '.join(lista_evals)}).")
+
+                    # Función para pintar de rojo a los menores de 14
+                    def resaltar_reprobados(val):
+                        try:
+                            v = float(val)
+                            if v < 14.00:
+                                return 'background-color: #F8D7DA; color: #721C24; font-weight: bold;'
+                        except Exception:
+                            pass
+                        return ''
+
+                    df_estilizado = df_cuadro_grp.style.map(resaltar_reprobados, subset=[col_nota_final])
+                    st.dataframe(df_estilizado, use_container_width=True)
+                    
+                    excel_bytes_indiv = generar_excel_cuadro_individual(df_cuadro_grp, grp_consultar, paralelo_sel)
+                    st.download_button(
+                        label=f"📥 Descargar Cuadro Consolidado en Excel (.xlsx) - {grp_consultar}",
+                        data=excel_bytes_indiv,
+                        file_name=f"Consolidado_{paralelo_sel.replace(' ', '_')}_{grp_consultar.replace(' ', '_')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                        key="btn_dl_transp"
+                    )
                 else:
                     st.warning("Este grupo aún no tiene calificaciones registradas.")
 
@@ -985,20 +1021,35 @@ with pestana_evaluar:
         total_tribunal_necesario = 3
         
         if df_cuadro_check is not None and not df_cuadro_check.empty:
+            col_nota_final = "CALIFICACIÓN FINAL (MÁX. 14.00)" if "CALIFICACIÓN FINAL (MÁX. 14.00)" in df_cuadro_check.columns else "CALIFICACIÓN FINAL (20.00)"
+            reprobados = df_cuadro_check[df_cuadro_check[col_nota_final] < 14.00]
+            if not reprobados.empty and cant_evals_check >= total_tribunal_necesario:
+                for _, r_rep in reprobados.iterrows():
+                    st.error(f"🚨 **ALERTA DE SUPLETORIO:** El cursante **{r_rep['Grado']} {r_rep['Nombres y Apellidos']}** ha obtenido **{r_rep[col_nota_final]:.2f} pts**. Deberá rendir sustentación supletoria.")
+
             if cant_evals_check >= total_tribunal_necesario:
-                st.info(f"🎉 ¡TODOS LOS DOCENTES ({cant_evals_check}/{total_tribunal_necesario}) HAN CULMINADO LA CALIFICACIÓN DE {g_eval}!")
-                st.dataframe(df_cuadro_check, use_container_width=True)
-                excel_bytes_indiv = generar_excel_cuadro_individual(df_cuadro_check, g_eval, p_eval)
-                st.download_button(
-                    label=f"📥 Descargar Cuadro Oficial en Excel (.xlsx) - {g_eval}",
-                    data=excel_bytes_indiv,
-                    file_name=f"Consolidado_{p_eval.replace(' ', '_')}_{g_eval.replace(' ', '_')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
-                    key="btn_dl_post_eval"
-                )
+                st.info(f"🎉 ¡LOS 3 MIEMBROS DEL TRIBUNAL ({', '.join(lista_evals_check)}) HAN CULMINADO LA CALIFICACIÓN DE {g_eval}!")
             else:
-                st.warning(f"⏳ Su calificación ha sido guardada. Han calificado {cant_evals_check} de {total_tribunal_necesario} miembros del tribunal.")
+                st.warning(f"⏳ Calificación personal registrada. Han calificado {cant_evals_check} de {total_tribunal_necesario} miembros del tribunal.")
+                
+            def resaltar_reprobados_conf(val):
+                try:
+                    if float(val) < 14.00:
+                        return 'background-color: #F8D7DA; color: #721C24; font-weight: bold;'
+                except Exception:
+                    pass
+                return ''
+
+            st.dataframe(df_cuadro_check.style.map(resaltar_reprobados_conf, subset=[col_nota_final]), use_container_width=True)
+            excel_bytes_indiv = generar_excel_cuadro_individual(df_cuadro_check, g_eval, p_eval)
+            st.download_button(
+                label=f"📥 Descargar Cuadro Oficial en Excel (.xlsx) - {g_eval}",
+                data=excel_bytes_indiv,
+                file_name=f"Consolidado_{p_eval.replace(' ', '_')}_{g_eval.replace(' ', '_')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="btn_dl_post_eval"
+            )
                 
         if st.button("➔ Calificar Siguiente Grupo", use_container_width=True):
             del st.session_state["grupo_evaluado_exito"]
@@ -1204,6 +1255,44 @@ with pestana_admin:
         tabs_admin = st.tabs(["📊 Consolidado de Notas", "📄 Generar Actas Word (.docx)", "⚙️ Gestión de Docentes y Grupos"])
         
         with tabs_admin[0]:
+            # REQUISITO 2: APARTADO DE MONITOREO DE EVALUADORES PARA EL ADMINISTRADOR
+            st.markdown("### 🚦 Estado del Tribunal y Monitoreo de Calificaciones")
+            par_monitoreo = st.selectbox("Paralelo a Monitorear:", PARALELOS_DISPONIBLES, key="monitoreo_par_sel")
+            docs_mon, grps_mon, _ = cargar_configuracion(par_monitoreo)
+            
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT grupo, COUNT(DISTINCT evaluador) as cantidad_docentes, GROUP_CONCAT(DISTINCT evaluador) as docentes_list
+                FROM evaluaciones
+                WHERE paralelo = ?
+                GROUP BY grupo
+            """, (par_monitoreo,))
+            estados_db = {row[0]: (row[1], row[2].split(",") if row[2] else []) for row in cursor.fetchall()}
+            
+            filas_monitoreo = []
+            for g_nom in grps_mon.keys():
+                if g_nom in estados_db:
+                    cant, lista_d = estados_db[g_nom]
+                    if cant >= 3:
+                        estado_txt = "🟢 COMPLETO (3/3 miembros)"
+                    else:
+                        faltan = [d for d in docs_mon[:3] if d not in lista_d]
+                        estado_txt = f"🟡 INCOMPLETO ({cant}/3) - Falta: {', '.join(faltan) if faltan else 'Otros'}"
+                    docentes_registrados_txt = ", ".join(lista_d)
+                else:
+                    estado_txt = "⚪ PENDIENTE (0/3 miembros)"
+                    docentes_registrados_txt = "Sin calificaciones registradas"
+                    
+                filas_monitoreo.append({
+                    "Grupo": g_nom,
+                    "Estado del Tribunal": estado_txt,
+                    "Evaluadores que ya Calificaron": docentes_registrados_txt
+                })
+                
+            st.dataframe(pd.DataFrame(filas_monitoreo), use_container_width=True)
+            st.divider()
+
+            # CONSOLIDADO DETALLADO POR ALUMNO
             df = pd.read_sql_query("SELECT * FROM evaluaciones", conn)
             if df.empty:
                 st.info("No hay evaluaciones registradas hasta el momento.")
@@ -1259,7 +1348,17 @@ with pestana_admin:
                         })
                     
                     df_oficial = pd.DataFrame(lista_excel)
-                    st.dataframe(df_oficial, use_container_width=True)
+                    
+                    # Estilizar en rojo los menores a 14 en la tabla del administrador
+                    def pintar_rojo_admin(val):
+                        try:
+                            if float(val) < 14.00:
+                                return 'background-color: #F8D7DA; color: #721C24; font-weight: bold;'
+                        except Exception:
+                            pass
+                        return ''
+
+                    st.dataframe(df_oficial.style.map(pintar_rojo_admin, subset=["Total Calificación Final"]), use_container_width=True)
                     
                     output_excel = io.BytesIO()
                     with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
