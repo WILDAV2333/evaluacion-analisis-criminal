@@ -40,7 +40,7 @@ DATOS_PRECONFIGURADOS = {
                     "Sgos. Guaño Paguay Diego Armando",
                     "Cbop. Mina Pastrana Yadira Tatiana",
                     "Cbos. Escobar Munoz Fernando Patricio",
-                    "Cbos. Pindo Jiménez Antony Cristhofer"
+                    "Cbos. Pindo Jiménez Antony Cristhofer",
                     "Poli. Paredes Arcos Marco Ruben"
                 ]
             },
@@ -50,7 +50,7 @@ DATOS_PRECONFIGURADOS = {
                     "Cptn. Torres Chasi Jaime Fernando",
                     "Cbop. Zanafria Montoya Gonzalo Daniel",
                     "Cbop. Yanza Chasiquiza Diego Fernando",
-                    "Cbop. Flores Cárdenas Luis Felipe"
+                    "Cbop. Flores Cárdenas Luis Felipe",
                     "Cbos. Palacios Jara Cristian Joel"
                 ]
             },
@@ -60,8 +60,8 @@ DATOS_PRECONFIGURADOS = {
                     "Tnte. Calan Lozada Erick Alexander",
                     "Cbop. Coyago Narvaez Santiago Paúl",
                     "Cbop. Calero Lara Mauricio Israel",
-                    "Cbos. Tenorio Ávila Andrea Mishell"
-                    "Cbos. Minda Cuamacas Gabriel Alexander"
+                    "Cbos. Tenorio Ávila Andrea Mishell",
+                    "Cbos. Minda Cuamacas Gabriel Alexander",
                     "Poli. León Jacome Juan Carlos"
                 ]
             },
@@ -71,7 +71,7 @@ DATOS_PRECONFIGURADOS = {
                     "Cptn. Garzón Masapanta Henry Rodrigo",
                     "Sgos. Cupueran Vallejos Juan Diego",
                     "Cbos. Torres Palacios Darwin Paul",
-                    "Poli. Melo Macias Evelyn Micaela"
+                    "Poli. Melo Macias Evelyn Micaela",
                     "Poli. Pasquel Jaramillo Luis Alfredo"
                 ]
             },
@@ -81,8 +81,8 @@ DATOS_PRECONFIGURADOS = {
                     "Tnte. Silva Toledo Michael Eduardo",
                     "Sgop. Casa Caiza German Hernan",
                     "Cbop. Ortiz Medina Douglas Enrique",
-                    "Cbos. Sánchez Torres Lorena Magaly"
-                    "Poli. López Puente Dylan Issac"
+                    "Cbos. Sánchez Torres Lorena Magaly",
+                    "Poli. López Puente Dylan Issac",
                     "Poli. Mejia Rigcha Jorge Alberto"
                 ]
             }
@@ -97,7 +97,7 @@ DATOS_PRECONFIGURADOS = {
         ],
         "grupos": {
             "Grupo Nro. 1": {
-                "tema": "CASO: PAOLA ORTEGA,
+                "tema": "CASO: PAOLA ORTEGA",
                 "alumnos": [
                     "Tnte. Bocancho Velasque Freddy Marcelo",
                     "Cbos. Picuasi Diaz Roberto Fabian",
@@ -143,7 +143,7 @@ DATOS_PRECONFIGURADOS = {
                     "Cbop. Quinancela Martillo Edison Geovanny",
                     "Cbos. Jimenez Parrales Briggitte Ginger",
                     "Cbos. Narvaez Chalan Marlon Stalin",
-                    "Poli. Chancusig Mendoza Henry Ismael"
+                    "Poli. Chancusig Mendoza Henry Ismael",
                     "Poli. Quishpe Jitala Alexis Adrian"
                 ]
             }
@@ -198,6 +198,7 @@ def get_db():
         )
     """)
     
+    # Auto-actualizar o precargar si no existen
     cursor.execute("SELECT COUNT(*) FROM config_docentes")
     if cursor.fetchone()[0] == 0:
         for par, data in DATOS_PRECONFIGURADOS.items():
@@ -286,9 +287,10 @@ def separar_grado_nombre(cadena_alumno):
         "cbop.": "Cbop.", "cbop": "Cbop.",
         "cbos.": "Cbos.", "cbos": "Cbos.",
         "poli.": "Poli.", "poli": "Poli.", "policia": "Poli.", "policía": "Poli.",
-        "myor.": "Myor.", "myor": "Myor.", "mayor": "Myor.",
+        "myor.": "Myor.", "myor": "Myor.", "mayor": "Myor.", "mayr.": "Myor.", "mayr": "Myor.",
         "crnl.": "Crnl.", "crnl": "Crnl.", "coronel": "Crnl.",
-        "gral.": "Gral.", "gral": "Gral."
+        "gral.": "Gral.", "gral": "Gral.",
+        "dr.": "Dr.", "dr": "Dr.", "dra.": "Dra.", "dra": "Dra."
     }
     
     if token_lower in mapa_grados:
@@ -537,7 +539,6 @@ def generar_excel_cuadro_individual(df_cuadro, nombre_grupo, paralelo):
 def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso, fecha_str, integrantes, tribunal_nombres, notas_escrito_21, desglose_alumnos):
     doc = docx.Document(plantilla_path)
     
-    # 1. Encabezado
     doc.paragraphs[5].text = f"Integrantes del Grupo Nro: {grupo_nombre}                           Paralelo: {paralelo}"
     
     for i in range(6):
@@ -557,7 +558,6 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
         else:
             doc.paragraphs[p_idx].text = f"{i+1}. ----------------------------------------"
             
-    # 2. Tabla 0: Fase I (Entregable Físico - 21 Indicadores)
     t0 = doc.tables[0]
     t0.rows[11].cells[1].text = "ANÁLISIS DE INVESTIGACIÓN CRIMINAL"
     t0.rows[12].cells[1].text = "Análisis del plan de investigación o presentan un plan de investigación"
@@ -589,7 +589,6 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
         
     t0.rows[36].cells[2].text = f"{tot_escrito_acum:.2f} / 8 puntos"
     
-    # 3. Eliminar la antigua Tabla 1 y Tabla 2
     t1_old = doc.tables[1]
     t2_old = doc.tables[2]
     t3_firmas = doc.tables[3]
@@ -597,7 +596,6 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
     t1_old._element.getparent().remove(t1_old._element)
     t2_old._element.getparent().remove(t2_old._element)
     
-    # 4. Insertar encabezado oficial de la FASE II
     p_head = doc.add_paragraph()
     p_head.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_head.paragraph_format.space_before = Pt(14)
@@ -608,12 +606,11 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
     r_head.font.name = "Arial"
     t3_firmas._element.addprevious(p_head._element)
     
-    # 5. Insertar la nueva Tabla Individual con las 10 columnas
     columnas_indiv = [
-        "Ord.", "Grado", "Nombres y\nApellidos", 
-        "Sustentación\n(3.00)", "Interrogatorio\n(3.00)", 
-        "Análisis Estrat.\n(3.00)", "Elem. Diferenc.\n(3.00)", 
-        "TOTAL ORAL\n(12.00)", "TRABAJO ESCRITO\n(8.00)", "CALIFICACIÓN FINAL\n(20.00)"
+        "Ord.", "Grado", "Nombres y Apellidos", 
+        "Sustentación (3.00)", "Interrogatorio (3.00)", 
+        "Análisis Estrat. (3.00)", "Elem. Diferenc. (3.00)", 
+        "TOTAL ORAL (12.00)", "TRABAJO ESCRITO (8.00)", "CALIFICACIÓN FINAL (20.00)"
     ]
     
     num_filas = len(desglose_alumnos) + 1
@@ -625,7 +622,7 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
     
     hdr_cells = t_indiv.rows[0].cells
     for c_i, col_name in enumerate(columnas_indiv):
-        hdr_cells[c_i].text = col_name.replace("\\n", "\n")
+        hdr_cells[c_i].text = col_name
         shading = parse_xml(r'<w:shd {} w:fill="E2EFDA"/>'.format(nsdecls('w')))
         hdr_cells[c_i]._tc.get_or_add_tcPr().append(shading)
         p = hdr_cells[c_i].paragraphs[0]
@@ -668,7 +665,6 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
             
     t3_firmas._element.addprevious(t_indiv._element)
     
-    # 6. Tabla de Firmas (Garantizar los 3 evaluadores completos)
     firma_base = "\n\n\n\n___________________________\nFirma: Evaluador "
     t3_firmas.rows[0].cells[0].text = f"{firma_base}1\nNombres: {tribunal_nombres[0] if len(tribunal_nombres) > 0 else '………………………'}"
     t3_firmas.rows[0].cells[1].text = f"{firma_base}2\nNombres: {tribunal_nombres[1] if len(tribunal_nombres) > 1 else '………………………'}"
@@ -880,7 +876,6 @@ with pestana_evaluar:
             elif not evaluador_activo:
                 st.info("👆 Seleccione primero su nombre como Miembro del Tribunal.")
 
-    # Módulo de transparencia y consulta consolidada
     if paralelo_sel and grupos_paralelo:
         with st.expander("🔍 Ver y Descargar Cuadro Consolidado Oficial (Transparencia)"):
             st.caption("Consulte las calificaciones de los grupos evaluados por el tribunal.")
@@ -910,13 +905,11 @@ with pestana_evaluar:
                 else:
                     st.warning("Este grupo aún no tiene calificaciones registradas.")
 
-    # Formulario activo de calificación
     if grupo_activo:
         with st.form("form_calificacion"):
             respuestas_escrito = []
             campos_faltantes = []
             
-            # --- EVALUACIÓN SUPLETORIO VS ORDINARIO ---
             if es_supletorio:
                 grupo_origen = grupo_activo.replace("Supletorio ", "")
                 nota_fase1_fijada, detalles_fase1_fijada = obtener_nota_escrito_grupo_original(paralelo_sel, grupo_origen)
@@ -961,7 +954,6 @@ with pestana_evaluar:
                                     campos_faltantes.append(f"{c_nombre} ➔ Indicador {ind_idx + 1}")
                             st.divider()
 
-            # --- FASE II: SUSTENTACIÓN ORAL ---
             num_alumnos = len(alumnos_activos)
             titulo_fase2 = f"### 🗣️ FASE II: SUSTENTACIÓN ORAL, DEFENSA E INTERROGATORIO (12 PUNTOS) — {num_alumnos} Cursante(s)"
             st.markdown(titulo_fase2)
@@ -971,6 +963,7 @@ with pestana_evaluar:
             
             for i, alumno in enumerate(alumnos_activos):
                 with st.expander(f"🎓 EVALUACIÓN INDIVIDUAL ➔ Integrante {i+1}: {alumno.upper()}", expanded=True):
+                    subtitulo_tarjeta = "Calificación de Examen Supletorio" if es_supletorio else "Calificación Individual del Cursante"
                     st.markdown(f"""
                         <div style="
                             background: linear-gradient(90deg, #00204A 0%, #083370 100%);
@@ -990,7 +983,7 @@ with pestana_evaluar:
                                 padding: 3px 8px;
                                 border-radius: 4px;
                             ">
-                                {'Calificación de Examen Supletorio' if es_supletorio else 'Calificación Individual del Cursante'}
+                                {subtitulo_tarjeta}
                             </span>
                             <h2 style="
                                 margin: 6px 0 0 0;
