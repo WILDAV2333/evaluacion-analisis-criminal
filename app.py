@@ -110,7 +110,7 @@ DATOS_PRECONFIGURADOS = {
         "docentes": [
             "Mayr. Mauro Napoleon Gavilanez Ortega",
             "Dra. Silvana Alexandra Sandoval Meléndez",
-            "Dra. Elisa Margarita Fiallos Montaleza",
+            "Dra. Nataly Carolina Logroño García",
         ],
         "grupos": {
             "Grupo Nro. 1": {
