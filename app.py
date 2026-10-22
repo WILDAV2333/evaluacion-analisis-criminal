@@ -22,8 +22,137 @@ st.set_page_config(
 )
 
 # -------------------------------------------------------------
-# 1. BASE DE DATOS LOCAL Y MIGRACIÓN AUTOMÁTICA
+# CONFIGURACIÓN MAESTRA PRECARGADA (NUNCA SE BORRA ANTE INACTIVIDAD)
 # -------------------------------------------------------------
+DATOS_PRECONFIGURADOS = {
+    "Paralelo A": {
+        "docentes": [
+            "Sgos. Freddy Andrés Loza Barrionuevo",
+            "Dr. Galo Alexander Quiñones Escuntar",
+            "Dra. Nora Alexandra Mantilla Allan",
+            "Mayor Patricio Ramos (Suplente)"
+        ],
+        "grupos": {
+            "Grupo Nro. 1": {
+                "tema": "CASO: KEVIN ZAMBRANO",
+                "alumnos": [
+                    "Cptn. Morales Torres Elvis Santiago",
+                    "Sgos. Guaño Paguay Diego Armando",
+                    "Cbop. Mina Pastrana Yadira Tatiana",
+                    "Cbos. Escobar Munoz Fernando Patricio",
+                    "Cbos. Pindo Jiménez Antony Cristhofer"
+                    "Poli. Paredes Arcos Marco Ruben"
+                ]
+            },
+            "Grupo Nro. 2": {
+                "tema": "CASO: LETY CANDO",
+                "alumnos": [
+                    "Cptn. Torres Chasi Jaime Fernando",
+                    "Cbop. Zanafria Montoya Gonzalo Daniel",
+                    "Cbop. Yanza Chasiquiza Diego Fernando",
+                    "Cbop. Flores Cárdenas Luis Felipe"
+                    "Cbos. Palacios Jara Cristian Joel"
+                ]
+            },
+            "Grupo Nro. 3": {
+                "tema": "CASO: MAFIA ALBANEZA",
+                "alumnos": [
+                    "Tnte. Calan Lozada Erick Alexander",
+                    "Cbop. Coyago Narvaez Santiago Paúl",
+                    "Cbop. Calero Lara Mauricio Israel",
+                    "Cbos. Tenorio Ávila Andrea Mishell"
+                    "Cbos. Minda Cuamacas Gabriel Alexander"
+                    "Poli. León Jacome Juan Carlos"
+                ]
+            },
+            "Grupo Nro. 4": {
+                "tema": "CASO: ANTIOQUEÑO II",
+                "alumnos": [
+                    "Cptn. Garzón Masapanta Henry Rodrigo",
+                    "Sgos. Cupueran Vallejos Juan Diego",
+                    "Cbos. Torres Palacios Darwin Paul",
+                    "Poli. Melo Macias Evelyn Micaela"
+                    "Poli. Pasquel Jaramillo Luis Alfredo"
+                ]
+            },
+            "Grupo Nro. 5": {
+                "tema": "CASO: BRIONES CHIQUITO",
+                "alumnos": [
+                    "Tnte. Silva Toledo Michael Eduardo",
+                    "Sgop. Casa Caiza German Hernan",
+                    "Cbop. Ortiz Medina Douglas Enrique",
+                    "Cbos. Sánchez Torres Lorena Magaly"
+                    "Poli. López Puente Dylan Issac"
+                    "Poli. Mejia Rigcha Jorge Alberto"
+                ]
+            }
+        }
+    },
+    "Paralelo B": {
+        "docentes": [
+            "Mayr. Mauro Napoleon Gavilanez Ortega",
+            "Dra. Silvana Alexandra Sandoval Meléndez",
+            "Dra. Elisa Margarita Fiallos Montaleza",
+            "Mayor Patricio Ramos (Suplente)"
+        ],
+        "grupos": {
+            "Grupo Nro. 1": {
+                "tema": "CASO: PAOLA ORTEGA,
+                "alumnos": [
+                    "Tnte. Bocancho Velasque Freddy Marcelo",
+                    "Cbos. Picuasi Diaz Roberto Fabian",
+                    "Cbos. Quilumba Ponce Kevin Marcelo",
+                    "Poli. Aguilar Cordova Luis Jandry",
+                    "Poli. Chango Gorotiza Maria Jose"
+                ]
+            },
+            "Grupo Nro. 2": {
+                "tema": "CASO: ANTIOQUIA",
+                "alumnos": [
+                    "Sbte. Perez Bonilla Edyan Steven",
+                    "Sgos. Zapata Navas Christian Vinicio",
+                    "Cbop. Arias Shiguango Angel Stalin",
+                    "Cbop. Quintana Pabon Marco Andres",
+                    "Poli. Flores Osorio Alex Roberto"
+                ]
+            },
+            "Grupo Nro. 3": {
+                "tema": "CASO: NICOLS",
+                "alumnos": [
+                    "Cptn. Montes Oquendo Edgar Rafael",
+                    "Sgos. Cajas Paredes Edwin Mauricio",
+                    "Cbop. Cobeña Echeverria Jonathan Andres",
+                    "Cbos. Bastidas Feijoo Judith Michelle",
+                    "Cbos. Lanchi Chamba Luis Eduardo"
+                ]
+            },
+            "Grupo Nro. 4": {
+                "tema": "CASO: CHRISTIAN GUAÑUNA",
+                "alumnos": [
+                    "Sbte. Logacho Sanchez Eduardo Andres",
+                    "Cbos. Granda Granda Karla Ibeth",
+                    "Cbos. Jaramillo Vera Steven Hoover",
+                    "Poli. Amaguaya Damian Danny David",
+                    "Poli. Pilco Yugsan Jose Ivan"
+                ]
+            },
+            "Grupo Nro. 5": {
+                "tema": "CASO: DIEGO CABEZAS",
+                "alumnos": [
+                    "Cptn. Guaman Cabascango Henrry Eduardo",
+                    "Cbop. Quinancela Martillo Edison Geovanny",
+                    "Cbos. Jimenez Parrales Briggitte Ginger",
+                    "Cbos. Narvaez Chalan Marlon Stalin",
+                    "Poli. Chancusig Mendoza Henry Ismael"
+                    "Poli. Quishpe Jitala Alexis Adrian"
+                ]
+            }
+        }
+    }
+}
+
+ARCHIVO_RESPALDO = "respaldo_evaluaciones.json"
+
 def get_db():
     conn = sqlite3.connect("calificaciones_defensa.db", check_same_thread=False)
     cursor = conn.cursor()
@@ -51,24 +180,6 @@ def get_db():
         )
     """)
     
-    cursor.execute("PRAGMA table_info(evaluaciones)")
-    columnas = [col[1] for col in cursor.fetchall()]
-    columnas_requeridas = [
-        ("paralelo", "TEXT DEFAULT 'Paralelo A'"),
-        ("detalles_escrito_json", "TEXT"),
-        ("oral_sustentacion_nivel", "TEXT"),
-        ("oral_sustentacion_pts", "REAL DEFAULT 0"),
-        ("oral_interrogatorio_nivel", "TEXT"),
-        ("oral_interrogatorio_pts", "REAL DEFAULT 0"),
-        ("oral_estrategico_nivel", "TEXT"),
-        ("oral_estrategico_pts", "REAL DEFAULT 0"),
-        ("oral_diferenciador_nivel", "TEXT"),
-        ("oral_diferenciador_pts", "REAL DEFAULT 0")
-    ]
-    for col_nom, col_tipo in columnas_requeridas:
-        if col_nom not in columnas:
-            cursor.execute(f"ALTER TABLE evaluaciones ADD COLUMN {col_nom} {col_tipo}")
-        
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS config_docentes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,6 +187,7 @@ def get_db():
             nombre TEXT
         )
     """)
+    
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS config_grupos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,15 +197,58 @@ def get_db():
             alumnos_json TEXT
         )
     """)
-    cursor.execute("PRAGMA table_info(config_grupos)")
-    cols_grp = [col[1] for col in cursor.fetchall()]
-    if "tema_caso" not in cols_grp:
-        cursor.execute("ALTER TABLE config_grupos ADD COLUMN tema_caso TEXT DEFAULT ''")
+    
+    cursor.execute("SELECT COUNT(*) FROM config_docentes")
+    if cursor.fetchone()[0] == 0:
+        for par, data in DATOS_PRECONFIGURADOS.items():
+            for doc in data["docentes"]:
+                cursor.execute("INSERT INTO config_docentes (paralelo, nombre) VALUES (?, ?)", (par, doc))
+            for grp_nom, g_info in data["grupos"].items():
+                cursor.execute(
+                    "INSERT INTO config_grupos (paralelo, grupo, tema_caso, alumnos_json) VALUES (?, ?, ?, ?)",
+                    (par, grp_nom, g_info["tema"], json.dumps(g_info["alumnos"]))
+                )
+    
+    cursor.execute("SELECT COUNT(*) FROM evaluaciones")
+    if cursor.fetchone()[0] == 0 and os.path.exists(ARCHIVO_RESPALDO):
+        try:
+            with open(ARCHIVO_RESPALDO, "r", encoding="utf-8") as f:
+                respaldo = json.load(f)
+                for reg in respaldo:
+                    cursor.execute("""
+                        INSERT INTO evaluaciones 
+                        (fecha, paralelo, evaluador, grupo, alumno, nota_escrito, detalles_escrito_json,
+                         oral_sustentacion_nivel, oral_sustentacion_pts,
+                         oral_interrogatorio_nivel, oral_interrogatorio_pts,
+                         oral_estrategico_nivel, oral_estrategico_pts,
+                         oral_diferenciador_nivel, oral_diferenciador_pts,
+                         nota_oral, nota_total)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, reg)
+        except Exception:
+            pass
 
     conn.commit()
     return conn
 
 conn = get_db()
+
+def respaldar_evaluaciones_en_disco():
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT fecha, paralelo, evaluador, grupo, alumno, nota_escrito, detalles_escrito_json,
+               oral_sustentacion_nivel, oral_sustentacion_pts,
+               oral_interrogatorio_nivel, oral_interrogatorio_pts,
+               oral_estrategico_nivel, oral_estrategico_pts,
+               oral_diferenciador_nivel, oral_diferenciador_pts,
+               nota_oral, nota_total FROM evaluaciones
+    """)
+    filas = cursor.fetchall()
+    try:
+        with open(ARCHIVO_RESPALDO, "w", encoding="utf-8") as f:
+            json.dump(filas, f, ensure_ascii=False)
+    except Exception:
+        pass
 
 def cargar_configuracion(paralelo):
     cursor = conn.cursor()
@@ -147,9 +302,6 @@ def separar_grado_nombre(cadena_alumno):
         
     return "S/G", cadena_alumno.strip()
 
-# -------------------------------------------------------------
-# 2. DEFINICIÓN DETALLADA DE LA RÚBRICA (5%, 50%, 75%, 100%)
-# -------------------------------------------------------------
 OPCIONES_NIVEL = ["Excelente", "Bueno", "Básico", "Deficiente"]
 PARALELOS_DISPONIBLES = ["Paralelo A", "Paralelo B"]
 
@@ -473,7 +625,7 @@ def generar_acta_docx_oficial(plantilla_path, paralelo, grupo_nombre, tema_caso,
     
     hdr_cells = t_indiv.rows[0].cells
     for c_i, col_name in enumerate(columnas_indiv):
-        hdr_cells[c_i].text = col_name
+        hdr_cells[c_i].text = col_name.replace("\\n", "\n")
         shading = parse_xml(r'<w:shd {} w:fill="E2EFDA"/>'.format(nsdecls('w')))
         hdr_cells[c_i]._tc.get_or_add_tcPr().append(shading)
         p = hdr_cells[c_i].paragraphs[0]
@@ -564,6 +716,9 @@ def calcular_cuadro_consolidado_grupo(paralelo, grupo_nombre, grupos_p):
         tot_escrito = round(sum(sum(l) for l in listas_ind) / num_l, 2)
         
     integrantes = grupos_p.get(grupo_nombre, [])
+    if not integrantes and regs:
+        integrantes = list(dict.fromkeys(r[1] for r in regs))
+        
     filas = []
     for idx, al_nom in enumerate(integrantes, start=1):
         evals_al = [r for r in regs if r[1] == al_nom]
@@ -592,6 +747,39 @@ def calcular_cuadro_consolidado_grupo(paralelo, grupo_nombre, grupos_p):
         })
     df_cuadro = pd.DataFrame(filas)
     return df_cuadro, cant_evaluadores, evaluadores_registrados
+
+def obtener_supletorios_pendientes(paralelo, grupos_p):
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT grupo, alumno, AVG(nota_total) as promedio_final
+        FROM evaluaciones
+        WHERE paralelo = ? AND grupo NOT LIKE 'Supletorio%'
+        GROUP BY grupo, alumno
+        HAVING promedio_final < 14.00
+    """, (paralelo,))
+    filas = cursor.fetchall()
+    
+    supletorios = {}
+    for grp, al, prom in filas:
+        nom_suplet = f"Supletorio {grp}"
+        if nom_suplet not in supletorios:
+            supletorios[nom_suplet] = {
+                "tema": f"Examen Supletorio de Sustentación Oral - {grp}",
+                "alumnos": []
+            }
+        supletorios[nom_suplet]["alumnos"].append(al)
+    return supletorios
+
+def obtener_nota_escrito_grupo_original(paralelo, grupo_nombre):
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT nota_escrito, detalles_escrito_json FROM evaluaciones
+        WHERE paralelo = ? AND grupo = ? LIMIT 1
+    """, (paralelo, grupo_nombre))
+    fila = cursor.fetchone()
+    if fila:
+        return fila[0], fila[1]
+    return 0.0, "[]"
 
 # -------------------------------------------------------------
 # 3. INTERFAZ: PESTAÑAS
@@ -625,8 +813,7 @@ with pestana_evaluar:
     paralelo_sel = st.selectbox(
         "Seleccione el Paralelo:",
         PARALELOS_DISPONIBLES,
-        index=None,
-        placeholder="-- Seleccione Paralelo A o B --"
+        index=0
     )
     
     col_eval, col_grp = st.columns(2)
@@ -637,6 +824,7 @@ with pestana_evaluar:
     docentes_paralelo = []
     grupos_paralelo = {}
     temas_paralelo = {}
+    es_supletorio = False
     
     if paralelo_sel:
         docentes_paralelo, grupos_paralelo, temas_paralelo = cargar_configuracion(paralelo_sel)
@@ -650,7 +838,7 @@ with pestana_evaluar:
                     placeholder="Seleccione su nombre..."
                 )
             else:
-                st.warning(f"No hay evaluadores asignados al {paralelo_sel} por el Administrador.")
+                st.warning(f"No hay evaluadores asignados al {paralelo_sel}.")
                 
         with col_grp:
             if grupos_paralelo and evaluador_activo:
@@ -661,41 +849,51 @@ with pestana_evaluar:
                 """, (paralelo_sel, evaluador_activo))
                 grupos_ya_calificados = [r[0] for r in cursor.fetchall()]
                 
-                grupos_pendientes = [g for g in grupos_paralelo.keys() if g not in grupos_ya_calificados]
+                grupos_ordinarios_pendientes = [g for g in grupos_paralelo.keys() if g not in grupos_ya_calificados]
                 
-                if grupos_pendientes:
+                supletorios_dict = obtener_supletorios_pendientes(paralelo_sel, grupos_paralelo)
+                grupos_supletorio_pendientes = [s for s in supletorios_dict.keys() if s not in grupos_ya_calificados]
+                
+                opciones_grupo = grupos_ordinarios_pendientes + grupos_supletorio_pendientes
+                
+                if opciones_grupo:
                     grupo_activo = st.selectbox(
-                        "Grupo a Evaluar (Pendientes de calificar):",
-                        grupos_pendientes,
+                        "Grupo a Evaluar (Pendientes de su calificación):",
+                        opciones_grupo,
                         index=None,
                         placeholder="Seleccione el grupo a calificar..."
                     )
                     if grupo_activo:
-                        alumnos_activos = grupos_paralelo[grupo_activo]
-                        tema_activo = temas_paralelo.get(grupo_activo, "Caso Práctico Integrador")
+                        if grupo_activo in grupos_paralelo:
+                            es_supletorio = False
+                            alumnos_activos = grupos_paralelo[grupo_activo]
+                            tema_activo = temas_paralelo.get(grupo_activo, "Caso Práctico Integrador")
+                        elif grupo_activo in supletorios_dict:
+                            es_supletorio = True
+                            alumnos_activos = supletorios_dict[grupo_activo]["alumnos"]
+                            tema_activo = supletorios_dict[grupo_activo]["tema"]
                 else:
-                    st.success(f"👏 ¡Estimado/a {evaluador_activo}, usted ya ha calificado a todos los grupos registrados en el {paralelo_sel}!")
+                    st.success(f"👏 ¡Estimado/a {evaluador_activo}, usted ha completado todas las evaluaciones asignadas en el {paralelo_sel}!")
                     
                 if grupos_ya_calificados:
-                    st.caption(f"🔒 Grupos ya calificados por usted: {', '.join(grupos_ya_calificados)}")
+                    st.caption(f"🔒 Evaluaciones ya registradas por usted: {', '.join(grupos_ya_calificados)}")
             elif not evaluador_activo:
                 st.info("👆 Seleccione primero su nombre como Miembro del Tribunal.")
-            else:
-                st.warning(f"No hay grupos registrados en el {paralelo_sel} por el Administrador.")
-    else:
-        st.info("👆 Seleccione primero el Paralelo para cargar el Tribunal y los Grupos correspondientes.")
 
+    # Módulo de transparencia y consulta consolidada
     if paralelo_sel and grupos_paralelo:
-        with st.expander("🔍 Ver y Descargar Cuadro Consolidado de Grupos Calificados (Transparencia)"):
-            st.caption("Una vez que los miembros del tribunal culminan con la evaluación del grupo, aquí se genera el cuadro consolidado oficial.")
-            grp_consultar = st.selectbox("Seleccione el Grupo para consultar estado:", list(grupos_paralelo.keys()), key="consultar_transp_grp")
+        with st.expander("🔍 Ver y Descargar Cuadro Consolidado Oficial (Transparencia)"):
+            st.caption("Consulte las calificaciones de los grupos evaluados por el tribunal.")
+            supletorios_act = obtener_supletorios_pendientes(paralelo_sel, grupos_paralelo)
+            todos_grupos_consulta = list(grupos_paralelo.keys()) + list(supletorios_act.keys())
+            grp_consultar = st.selectbox("Seleccione el Grupo para consultar:", todos_grupos_consulta, key="consultar_transp_grp")
             if grp_consultar:
                 df_cuadro_grp, cant_evals, lista_evals = calcular_cuadro_consolidado_grupo(paralelo_sel, grp_consultar, grupos_paralelo)
-                total_tribunal_necesario = len(docentes_paralelo) if len(docentes_paralelo) >= 1 else 3
+                total_tribunal_necesario = 3
                 
                 if df_cuadro_grp is not None and not df_cuadro_grp.empty:
                     if cant_evals >= total_tribunal_necesario:
-                        st.success(f"✅ ¡GRUPO COMPLETAMENTE CALIFICADO por los {cant_evals} miembros del Tribunal ({', '.join(lista_evals)})!")
+                        st.success(f"✅ ¡GRUPO COMPLETAMENTE CALIFICADO por el Tribunal ({', '.join(lista_evals)})!")
                         st.dataframe(df_cuadro_grp, use_container_width=True)
                         
                         excel_bytes_indiv = generar_excel_cuadro_individual(df_cuadro_grp, grp_consultar, paralelo_sel)
@@ -708,49 +906,66 @@ with pestana_evaluar:
                             key="btn_dl_transp"
                         )
                     else:
-                        st.info(f"⏳ Este grupo ha sido calificado por {cant_evals} de {total_tribunal_necesario} docente(s): {', '.join(lista_evals)}. El cuadro oficial se habilitará en cuanto todos los miembros completen la evaluación.")
+                        st.info(f"⏳ Este grupo cuenta con {cant_evals} de {total_tribunal_necesario} calificaciones: {', '.join(lista_evals)}. El cuadro se activará cuando los 3 miembros completen la evaluación.")
                 else:
                     st.warning("Este grupo aún no tiene calificaciones registradas.")
 
+    # Formulario activo de calificación
     if grupo_activo:
         with st.form("form_calificacion"):
-            st.markdown(f"### 📄 FASE I: DESARROLLO DEL CASO — PRODUCTO ENTREGABLE FÍSICO (8 PUNTOS)")
-            st.caption(f"Calificación grupal para: **{grupo_activo}** — Tema: *{tema_activo}*")
-            
             respuestas_escrito = []
             campos_faltantes = []
             
-            for c_idx, crit_obj in enumerate(CRITERIOS_DETALLADOS_ESCRITO):
-                c_nombre = crit_obj["criterio"]
-                c_tot = crit_obj["total_pts"]
+            # --- EVALUACIÓN SUPLETORIO VS ORDINARIO ---
+            if es_supletorio:
+                grupo_origen = grupo_activo.replace("Supletorio ", "")
+                nota_fase1_fijada, detalles_fase1_fijada = obtener_nota_escrito_grupo_original(paralelo_sel, grupo_origen)
                 
-                with st.container():
-                    st.markdown(f"#### 📌 {c_nombre} *(Puntaje Máximo: {c_tot:.2f} pts)*")
+                st.markdown(f"### ⚠️ EVALUACIÓN SUPLETORIA: {grupo_activo}")
+                st.info(f"""
+                    📌 **RÉGIMEN SUPLETORIO:**
+                    * El cursante rinde únicamente la **FASE II: Sustentación Oral, Defensa e Interrogatorio (12 Puntos)**.
+                    * La calificación de la **FASE I (Trabajo Escrito)** se mantiene fija con la nota grupal original: **{nota_fase1_fijada:.2f} / 8.00 puntos**.
+                """)
+                subtotal_escrito_aplicar = nota_fase1_fijada
+                detalles_escrito_json_aplicar = detalles_fase1_fijada
+            else:
+                st.markdown(f"### 📄 FASE I: DESARROLLO DEL CASO — PRODUCTO ENTREGABLE FÍSICO (8 PUNTOS)")
+                st.caption(f"Calificación para: **{grupo_activo}** — Tema: *{tema_activo}*")
+                
+                for c_idx, crit_obj in enumerate(CRITERIOS_DETALLADOS_ESCRITO):
+                    c_nombre = crit_obj["criterio"]
+                    c_tot = crit_obj["total_pts"]
                     
-                    for ind_idx, ind in enumerate(crit_obj["indicadores"]):
-                        c_desc, c_sel = st.columns([3, 2])
-                        with c_desc:
-                            st.markdown(f"**Indicador {ind_idx + 1}:** {ind['desc']}")
-                            st.caption(f"Valor Máximo: {ind['max']:.2f} pts")
-                        with c_sel:
-                            opc_sel = st.selectbox(
-                                f"Nivel para Ind {ind_idx+1} de {c_nombre}",
-                                OPCIONES_NIVEL,
-                                index=None,
-                                placeholder="-- Seleccione calificación --",
-                                key=f"esc_{c_idx}_{ind_idx}",
-                                label_visibility="collapsed"
-                            )
-                            if opc_sel is not None:
-                                pts_obtenidos = ind["valores"][opc_sel]
-                                respuestas_escrito.append(pts_obtenidos)
-                            else:
-                                campos_faltantes.append(f"{c_nombre} ➔ Indicador {ind_idx + 1}")
-                        st.divider()
+                    with st.container():
+                        st.markdown(f"#### 📌 {c_nombre} *(Puntaje Máximo: {c_tot:.2f} pts)*")
+                        
+                        for ind_idx, ind in enumerate(crit_obj["indicadores"]):
+                            c_desc, c_sel = st.columns([3, 2])
+                            with c_desc:
+                                st.markdown(f"**Indicador {ind_idx + 1}:** {ind['desc']}")
+                                st.caption(f"Valor Máximo: {ind['max']:.2f} pts")
+                            with c_sel:
+                                opc_sel = st.selectbox(
+                                    f"Nivel para Ind {ind_idx+1} de {c_nombre}",
+                                    OPCIONES_NIVEL,
+                                    index=None,
+                                    placeholder="-- Seleccione calificación --",
+                                    key=f"esc_{c_idx}_{ind_idx}",
+                                    label_visibility="collapsed"
+                                )
+                                if opc_sel is not None:
+                                    pts_obtenidos = ind["valores"][opc_sel]
+                                    respuestas_escrito.append(pts_obtenidos)
+                                else:
+                                    campos_faltantes.append(f"{c_nombre} ➔ Indicador {ind_idx + 1}")
+                            st.divider()
 
+            # --- FASE II: SUSTENTACIÓN ORAL ---
             num_alumnos = len(alumnos_activos)
-            st.markdown(f"### 🗣️ FASE II: SUSTENTACIÓN ORAL, DEFENSA E INTERROGATORIO (12 PUNTOS) — {num_alumnos} Integrantes")
-            st.caption("Obligatorio calificar individualmente los 4 criterios a cada integrante del grupo.")
+            titulo_fase2 = f"### 🗣️ FASE II: SUSTENTACIÓN ORAL, DEFENSA E INTERROGATORIO (12 PUNTOS) — {num_alumnos} Cursante(s)"
+            st.markdown(titulo_fase2)
+            st.caption("Obligatorio calificar individualmente los 4 criterios a cada cursante.")
             
             evaluaciones_orales = []
             
@@ -775,7 +990,7 @@ with pestana_evaluar:
                                 padding: 3px 8px;
                                 border-radius: 4px;
                             ">
-                                Calificación Individual del Cursante
+                                {'Calificación de Examen Supletorio' if es_supletorio else 'Calificación Individual del Cursante'}
                             </span>
                             <h2 style="
                                 margin: 6px 0 0 0;
@@ -830,7 +1045,7 @@ with pestana_evaluar:
                             "subtotal_oral": subtotal_indiv
                         })
             
-            enviar = st.form_submit_button("💾 Guardar y Enviar Evaluación del Grupo", use_container_width=True)
+            enviar = st.form_submit_button("💾 Guardar y Enviar Evaluación", use_container_width=True)
             
             if enviar:
                 if not paralelo_sel:
@@ -848,14 +1063,16 @@ with pestana_evaluar:
                     cursor = conn.cursor()
                     cursor.execute("SELECT id FROM evaluaciones WHERE paralelo = ? AND evaluador = ? AND grupo = ?", (paralelo_sel, evaluador_activo, grupo_activo))
                     if cursor.fetchone():
-                        st.error("⚠️ Este grupo ya cuenta con su calificación registrada. No se permiten envíos duplicados.")
+                        st.error("⚠️ Esta evaluación ya cuenta con su calificación registrada.")
                     else:
-                        subtotal_escrito = round(sum(respuestas_escrito), 2)
-                        detalles_escrito_json_str = json.dumps(respuestas_escrito)
+                        if not es_supletorio:
+                            subtotal_escrito_aplicar = round(sum(respuestas_escrito), 2)
+                            detalles_escrito_json_aplicar = json.dumps(respuestas_escrito)
+                            
                         fecha_reg = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         
                         for ev in evaluaciones_orales:
-                            nota_total_calc = round(subtotal_escrito + ev["subtotal_oral"], 2)
+                            nota_total_calc = round(subtotal_escrito_aplicar + ev["subtotal_oral"], 2)
                             cursor.execute("""
                                 INSERT INTO evaluaciones 
                                 (fecha, paralelo, evaluador, grupo, alumno, nota_escrito, detalles_escrito_json,
@@ -867,7 +1084,7 @@ with pestana_evaluar:
                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                             """, (
                                 fecha_reg, paralelo_sel, evaluador_activo, grupo_activo, ev["alumno"],
-                                subtotal_escrito, detalles_escrito_json_str,
+                                subtotal_escrito_aplicar, detalles_escrito_json_aplicar,
                                 ev["sust_nivel"], ev["sust_pts"],
                                 ev["interrog_nivel"], ev["interrog_pts"],
                                 ev["estrateg_nivel"], ev["estrateg_pts"],
@@ -875,6 +1092,7 @@ with pestana_evaluar:
                                 ev["subtotal_oral"], nota_total_calc
                             ))
                         conn.commit()
+                        respaldar_evaluaciones_en_disco()
                         st.session_state["grupo_evaluado_exito"] = (paralelo_sel, grupo_activo)
                         st.success(f"✅ ¡Evaluación del {grupo_activo} guardada exitosamente!")
                         st.balloons()
@@ -882,16 +1100,16 @@ with pestana_evaluar:
 
     if "grupo_evaluado_exito" in st.session_state:
         p_eval, g_eval = st.session_state["grupo_evaluado_exito"]
-        st.info(f"📌 Último grupo evaluado por usted: **{g_eval}** ({p_eval}).")
+        st.info(f"📌 Última evaluación registrada por usted: **{g_eval}** ({p_eval}).")
         
         docentes_p_check, grupos_p_check, _ = cargar_configuracion(p_eval)
         df_cuadro_check, cant_evals_check, lista_evals_check = calcular_cuadro_consolidado_grupo(p_eval, g_eval, grupos_p_check)
-        total_tribunal_necesario = len(docentes_p_check) if len(docentes_p_check) >= 1 else 3
+        total_tribunal_necesario = 3
         
         if df_cuadro_check is not None and not df_cuadro_check.empty:
             if cant_evals_check >= total_tribunal_necesario:
                 st.success(f"🎉 ¡TODOS LOS DOCENTES ({cant_evals_check}/{total_tribunal_necesario}) HAN CULMINADO LA CALIFICACIÓN DE {g_eval}!")
-                st.markdown("#### Cuadro de Calificación Oficial del Grupo:")
+                st.markdown("#### Cuadro de Calificación Oficial:")
                 st.dataframe(df_cuadro_check, use_container_width=True)
                 
                 excel_bytes_indiv = generar_excel_cuadro_individual(df_cuadro_check, g_eval, p_eval)
@@ -904,7 +1122,7 @@ with pestana_evaluar:
                     key="btn_dl_post_eval"
                 )
             else:
-                st.warning(f"⏳ Evaluación registrada. Han calificado {cant_evals_check} de {total_tribunal_necesario} miembros del tribunal. El cuadro consolidado final se habilitará en cuanto los demás docentes completen su evaluación.")
+                st.warning(f"⏳ Evaluación registrada. Han calificado {cant_evals_check} de {total_tribunal_necesario} miembros del tribunal.")
 
 # =============================================================
 # --- PESTAÑA ADMINISTRADOR ---
@@ -980,12 +1198,17 @@ with pestana_admin:
             
             st.divider()
             with st.expander("⚠️ Zona de Mantenimiento: Vaciar Evaluaciones de Prueba"):
-                st.warning("Esta acción eliminará únicamente las calificaciones registradas. No afectará a los evaluadores ni a los grupos configurados.")
+                st.warning("Esta acción eliminará únicamente las calificaciones registradas de prueba. No afectará a los docentes ni a los grupos configurados.")
                 confirmar = st.checkbox("Confirmo que deseo borrar todas las calificaciones de prueba registradas.")
                 if st.button("🗑️ Borrar Todas las Calificaciones", disabled=not confirmar):
                     cursor = conn.cursor()
                     cursor.execute("DELETE FROM evaluaciones")
                     conn.commit()
+                    if os.path.exists(ARCHIVO_RESPALDO):
+                        try:
+                            os.remove(ARCHIVO_RESPALDO)
+                        except Exception:
+                            pass
                     st.success("✅ Base de datos de calificaciones reiniciada a cero.")
                     st.rerun()
 
@@ -1000,9 +1223,11 @@ with pestana_admin:
             else:
                 par_acta = st.selectbox("Seleccione el Paralelo:", PARALELOS_DISPONIBLES, key="par_acta_sel")
                 docentes_p, grupos_p, temas_p = cargar_configuracion(par_acta)
+                supletorios_act = obtener_supletorios_pendientes(par_acta, grupos_p)
+                grupos_para_actas = list(grupos_p.keys()) + list(supletorios_act.keys())
                 
-                if grupos_p:
-                    grp_acta = st.selectbox("Seleccione el Grupo:", list(grupos_p.keys()), key="grp_acta_sel")
+                if grupos_para_actas:
+                    grp_acta = st.selectbox("Seleccione el Grupo:", grupos_para_actas, key="grp_acta_sel")
                     
                     cursor = conn.cursor()
                     cursor.execute("""
@@ -1036,6 +1261,9 @@ with pestana_admin:
                                 notas_21_prom[i] = round(sum(l[i] for l in listas_indicadores if i < len(l)) / num_listas, 2)
                         
                         integrantes_acta = grupos_p.get(grp_acta, [])
+                        if not integrantes_acta and grp_acta in supletorios_act:
+                            integrantes_acta = supletorios_act[grp_acta]["alumnos"]
+                            
                         desglose_alumnos = []
                         for al_nombre in integrantes_acta:
                             evals_al = [r for r in registros if r[1] == al_nombre]
@@ -1059,6 +1287,8 @@ with pestana_admin:
                         
                         fecha_acta = registros[0][8] if registros[0][8] else datetime.now().strftime("%d de %B de %Y")
                         tema_acta = temas_p.get(grp_acta, "Proyecto Integrador de Análisis Criminal")
+                        if grp_acta in supletorios_act:
+                            tema_acta = supletorios_act[grp_acta]["tema"]
                         
                         acta_bytes = generar_acta_docx_oficial(
                             plantilla_path=plantilla_oficial,
@@ -1085,7 +1315,7 @@ with pestana_admin:
                     st.info("No hay grupos registrados en este paralelo.")
 
         with tabs_admin[2]:
-            st.markdown("### 👥 Configuración de Nóminas y Tribunales")
+            st.markdown("### 👥 Configuración Adicional de Docentes y Grupos")
             paralelo_gestionar = st.selectbox("Seleccione el Paralelo a configurar:", PARALELOS_DISPONIBLES)
             
             c_docentes, c_grupos = st.columns(2)
@@ -1093,7 +1323,7 @@ with pestana_admin:
             with c_docentes:
                 st.markdown(f"#### 1. Miembros del Tribunal ({paralelo_gestionar})")
                 with st.form("form_agregar_docente", clear_on_submit=True):
-                    nuevo_docente = st.text_input("Grado y Nombre del Evaluador (ej. Mayor Juan Pérez):")
+                    nuevo_docente = st.text_input("Grado y Nombre del Evaluador (ej. Mayor Patricio Ramos):")
                     btn_docente = st.form_submit_button("➕ Agregar Evaluador")
                     if btn_docente and nuevo_docente.strip():
                         cursor = conn.cursor()
@@ -1123,9 +1353,8 @@ with pestana_admin:
                     nom_grupo = st.text_input("Identificador del Grupo (ej. Grupo 1):")
                     tema_grupo = st.text_input("Tema del Caso Analizado (ej. Análisis de Redes de Vínculos):")
                     alumnos_texto = st.text_area(
-                        "Integrantes (escriba o pegue un nombre con grado por línea, de 4 a 6):",
-                        help="Ejemplo:\nSgto. Juan Pérez\nCbos. Carlos Ruiz\nPoli. Ana Gómez",
-                        placeholder="Sgto. Juan Pérez\nCbos. Carlos Ruiz\nPoli. Ana Gómez\nPoli. Luis Castro"
+                        "Integrantes (un nombre con grado por línea):",
+                        placeholder="Cptn. Garzon Masapanta Henry Rodrigo\nSgos. Cupueran Vallejos Juan Diego"
                     )
                     btn_grupo = st.form_submit_button("➕ Registrar Grupo y Alumnos")
                     
