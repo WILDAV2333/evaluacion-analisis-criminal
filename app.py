@@ -831,7 +831,6 @@ def calcular_cuadro_consolidado_grupo(paralelo, grupo_nombre, grupos_p):
     df_cuadro = pd.DataFrame(filas)
     return df_cuadro, cant_evaluadores, evaluadores_registrados
 
-# REQUISITO 1: Crear la carpeta de supletorio ÚNICAMENTE cuando los 3 miembros hayan calificado
 def obtener_supletorios_pendientes(paralelo, grupos_p):
     cursor = conn.cursor()
     cursor.execute("""
@@ -958,7 +957,7 @@ with pestana_evaluar:
         else:
             st.info("👆 Seleccione primero su nombre como Miembro del Tribunal.")
 
-    # Módulo de transparencia y consulta consolidada (Con Alerta y Resaltado en Rojo)
+    # Módulo de transparencia y consulta consolidada
     if paralelo_sel and grupos_paralelo:
         with st.expander("🔍 Ver y Descargar Cuadro Consolidado Oficial (Transparencia)"):
             st.caption("Consulte las calificaciones de los grupos evaluados por el tribunal.")
@@ -972,7 +971,6 @@ with pestana_evaluar:
                 if df_cuadro_grp is not None and not df_cuadro_grp.empty:
                     col_nota_final = "CALIFICACIÓN FINAL (MÁX. 14.00)" if "CALIFICACIÓN FINAL (MÁX. 14.00)" in df_cuadro_grp.columns else "CALIFICACIÓN FINAL (20.00)"
                     
-                    # REQUISITO 3: Alerta con nombres si algún alumno tiene < 14
                     reprobados = df_cuadro_grp[df_cuadro_grp[col_nota_final] < 14.00]
                     if not reprobados.empty and cant_evals >= total_tribunal_necesario:
                         for _, r_rep in reprobados.iterrows():
@@ -986,11 +984,9 @@ with pestana_evaluar:
                     else:
                         st.info(f"⏳ Calificaciones registradas: {cant_evals} de {total_tribunal_necesario} docentes ({', '.join(lista_evals)}).")
 
-                    # Función para pintar de rojo a los menores de 14
                     def resaltar_reprobados(val):
                         try:
-                            v = float(val)
-                            if v < 14.00:
+                            if float(val) < 14.00:
                                 return 'background-color: #F8D7DA; color: #721C24; font-weight: bold;'
                         except Exception:
                             pass
@@ -1011,48 +1007,59 @@ with pestana_evaluar:
                 else:
                     st.warning("Este grupo aún no tiene calificaciones registradas.")
 
-    # Panel de confirmación tras registrar con éxito
+    # Panel posterior a la calificación: NO revela notas inmediatamente
     if "grupo_evaluado_exito" in st.session_state:
         p_eval, g_eval = st.session_state["grupo_evaluado_exito"]
-        st.success(f"✅ ¡EVALUACIÓN DE **{g_eval}** ({p_eval}) REGISTRADA CORRECTAMENTE EN EL SISTEMA!")
+        st.success(f"✅ ¡SU EVALUACIÓN PARA **{g_eval}** ({p_eval}) HA SIDO GUARDADA CORRECTAMENTE!")
         
         docentes_p_check, grupos_p_check, _ = cargar_configuracion(p_eval)
         df_cuadro_check, cant_evals_check, lista_evals_check = calcular_cuadro_consolidado_grupo(p_eval, g_eval, grupos_p_check)
         total_tribunal_necesario = 3
         
-        if df_cuadro_check is not None and not df_cuadro_check.empty:
-            col_nota_final = "CALIFICACIÓN FINAL (MÁX. 14.00)" if "CALIFICACIÓN FINAL (MÁX. 14.00)" in df_cuadro_check.columns else "CALIFICACIÓN FINAL (20.00)"
-            reprobados = df_cuadro_check[df_cuadro_check[col_nota_final] < 14.00]
-            if not reprobados.empty and cant_evals_check >= total_tribunal_necesario:
-                for _, r_rep in reprobados.iterrows():
-                    st.error(f"🚨 **ALERTA DE SUPLETORIO:** El cursante **{r_rep['Grado']} {r_rep['Nombres y Apellidos']}** ha obtenido **{r_rep[col_nota_final]:.2f} pts**. Deberá rendir sustentación supletoria.")
-
+        st.info(f"📊 **Estado actual del Tribunal para {g_eval}:** Han evaluado **{cant_evals_check} de {total_tribunal_necesario}** miembros ({', '.join(lista_evals_check)}).")
+        
+        # Botón para actualizar y verificar si ya están los 3 miembros
+        if st.button("🔄 Actualizar y Consultar Calificaciones Consolidadas (Requiere los 3 Miembros)", use_container_width=True):
+            st.session_state["ver_calificaciones_promediadas"] = True
+            
+        if st.session_state.get("ver_calificaciones_promediadas", False):
             if cant_evals_check >= total_tribunal_necesario:
-                st.info(f"🎉 ¡LOS 3 MIEMBROS DEL TRIBUNAL ({', '.join(lista_evals_check)}) HAN CULMINADO LA CALIFICACIÓN DE {g_eval}!")
-            else:
-                st.warning(f"⏳ Calificación personal registrada. Han calificado {cant_evals_check} de {total_tribunal_necesario} miembros del tribunal.")
-                
-            def resaltar_reprobados_conf(val):
-                try:
-                    if float(val) < 14.00:
-                        return 'background-color: #F8D7DA; color: #721C24; font-weight: bold;'
-                except Exception:
-                    pass
-                return ''
+                col_nota_final = "CALIFICACIÓN FINAL (MÁX. 14.00)" if "CALIFICACIÓN FINAL (MÁX. 14.00)" in df_cuadro_check.columns else "CALIFICACIÓN FINAL (20.00)"
+                reprobados = df_cuadro_check[df_cuadro_check[col_nota_final] < 14.00]
+                if not reprobados.empty:
+                    for _, r_rep in reprobados.iterrows():
+                        st.error(f"🚨 **ALERTA DE SUPLETORIO:** El cursante **{r_rep['Grado']} {r_rep['Nombres y Apellidos']}** ha obtenido **{r_rep[col_nota_final]:.2f} pts**. Deberá rendir sustentación supletoria.")
 
-            st.dataframe(df_cuadro_check.style.map(resaltar_reprobados_conf, subset=[col_nota_final]), use_container_width=True)
-            excel_bytes_indiv = generar_excel_cuadro_individual(df_cuadro_check, g_eval, p_eval)
-            st.download_button(
-                label=f"📥 Descargar Cuadro Oficial en Excel (.xlsx) - {g_eval}",
-                data=excel_bytes_indiv,
-                file_name=f"Consolidado_{p_eval.replace(' ', '_')}_{g_eval.replace(' ', '_')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-                key="btn_dl_post_eval"
-            )
+                st.success(f"🎉 ¡LOS 3 MIEMBROS DEL TRIBUNAL ({', '.join(lista_evals_check)}) HAN CULMINADO! CALIFICACIONES PROMEDIADAS:")
                 
+                def resaltar_reprobados_conf(val):
+                    try:
+                        if float(val) < 14.00:
+                            return 'background-color: #F8D7DA; color: #721C24; font-weight: bold;'
+                    except Exception:
+                        pass
+                    return ''
+
+                st.dataframe(df_cuadro_check.style.map(resaltar_reprobados_conf, subset=[col_nota_final]), use_container_width=True)
+                excel_bytes_indiv = generar_excel_cuadro_individual(df_cuadro_check, g_eval, p_eval)
+                st.download_button(
+                    label=f"📥 Descargar Cuadro Oficial en Excel (.xlsx) - {g_eval}",
+                    data=excel_bytes_indiv,
+                    file_name=f"Consolidado_{p_eval.replace(' ', '_')}_{g_eval.replace(' ', '_')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="btn_dl_post_eval"
+                )
+            else:
+                faltantes = total_tribunal_necesario - cant_evals_check
+                st.warning(f"⏳ **Calificaciones aún no disponibles:** Faltan {faltantes} miembro(s) del tribunal por calificar {g_eval}. Las notas promediadas se mostrarán únicamente cuando todos hayan completado su evaluación.")
+                
+        st.divider()
         if st.button("➔ Calificar Siguiente Grupo", use_container_width=True):
-            del st.session_state["grupo_evaluado_exito"]
+            if "grupo_evaluado_exito" in st.session_state:
+                del st.session_state["grupo_evaluado_exito"]
+            if "ver_calificaciones_promediadas" in st.session_state:
+                del st.session_state["ver_calificaciones_promediadas"]
             st.rerun()
 
     # Formulario activo de calificación
@@ -1241,6 +1248,7 @@ with pestana_evaluar:
                         conn.commit()
                         respaldar_evaluaciones_en_disco()
                         st.session_state["grupo_evaluado_exito"] = (paralelo_sel, grupo_activo)
+                        st.session_state["ver_calificaciones_promediadas"] = False
                         st.balloons()
                         st.rerun()
 
@@ -1255,7 +1263,6 @@ with pestana_admin:
         tabs_admin = st.tabs(["📊 Consolidado de Notas", "📄 Generar Actas Word (.docx)", "⚙️ Gestión de Docentes y Grupos"])
         
         with tabs_admin[0]:
-            # REQUISITO 2: APARTADO DE MONITOREO DE EVALUADORES PARA EL ADMINISTRADOR
             st.markdown("### 🚦 Estado del Tribunal y Monitoreo de Calificaciones")
             par_monitoreo = st.selectbox("Paralelo a Monitorear:", PARALELOS_DISPONIBLES, key="monitoreo_par_sel")
             docs_mon, grps_mon, _ = cargar_configuracion(par_monitoreo)
@@ -1292,7 +1299,6 @@ with pestana_admin:
             st.dataframe(pd.DataFrame(filas_monitoreo), use_container_width=True)
             st.divider()
 
-            # CONSOLIDADO DETALLADO POR ALUMNO
             df = pd.read_sql_query("SELECT * FROM evaluaciones", conn)
             if df.empty:
                 st.info("No hay evaluaciones registradas hasta el momento.")
@@ -1349,7 +1355,6 @@ with pestana_admin:
                     
                     df_oficial = pd.DataFrame(lista_excel)
                     
-                    # Estilizar en rojo los menores a 14 en la tabla del administrador
                     def pintar_rojo_admin(val):
                         try:
                             if float(val) < 14.00:
