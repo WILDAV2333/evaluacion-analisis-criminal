@@ -951,6 +951,7 @@ with pestana_evaluar:
             elif not evaluador_activo:
                 st.info("👆 Seleccione primero su nombre como Miembro del Tribunal.")
 
+    # Módulo de transparencia y consulta consolidada
     if paralelo_sel and grupos_paralelo:
         with st.expander("🔍 Ver y Descargar Cuadro Consolidado Oficial (Transparencia)"):
             st.caption("Consulte las calificaciones de los grupos evaluados por el tribunal.")
@@ -980,11 +981,42 @@ with pestana_evaluar:
                 else:
                     st.warning("Este grupo aún no tiene calificaciones registradas.")
 
-    if grupo_activo:
+    # Pantalla de confirmación tras registrar con éxito
+    if "grupo_evaluado_exito" in st.session_state:
+        p_eval, g_eval = st.session_state["grupo_evaluado_exito"]
+        st.success(f"✅ ¡EVALUACIÓN DE **{g_eval}** ({p_eval}) REGISTRADA CORRECTAMENTE!")
+        
+        docentes_p_check, grupos_p_check, _ = cargar_configuracion(p_eval)
+        df_cuadro_check, cant_evals_check, lista_evals_check = calcular_cuadro_consolidado_grupo(p_eval, g_eval, grupos_p_check)
+        total_tribunal_necesario = 3
+        
+        if df_cuadro_check is not None and not df_cuadro_check.empty:
+            if cant_evals_check >= total_tribunal_necesario:
+                st.info(f"🎉 ¡TODOS LOS DOCENTES ({cant_evals_check}/{total_tribunal_necesario}) HAN CULMINADO LA CALIFICACIÓN DE {g_eval}!")
+                st.dataframe(df_cuadro_check, use_container_width=True)
+                excel_bytes_indiv = generar_excel_cuadro_individual(df_cuadro_check, g_eval, p_eval)
+                st.download_button(
+                    label=f"📥 Descargar Cuadro Oficial en Excel (.xlsx) - {g_eval}",
+                    data=excel_bytes_indiv,
+                    file_name=f"Consolidado_{p_eval.replace(' ', '_')}_{g_eval.replace(' ', '_')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="btn_dl_post_eval"
+                )
+            else:
+                st.warning(f"⏳ Calificación personal registrada con éxito. Han calificado {cant_evals_check} de {total_tribunal_necesario} miembros del tribunal.")
+                
+        if st.button("➔ Evaluar Siguiente Grupo", use_container_width=True):
+            del st.session_state["grupo_evaluado_exito"]
+            st.rerun()
+
+    # Formulario activo de calificación
+    elif grupo_activo:
         with st.form("form_calificacion"):
             respuestas_escrito = []
             campos_faltantes = []
             
+            # --- EVALUACIÓN SUPLETORIO VS ORDINARIO ---
             if es_supletorio:
                 grupo_origen = grupo_activo.replace("Supletorio ", "")
                 nota_fase1_fijada, detalles_fase1_fijada = obtener_nota_escrito_grupo_original(paralelo_sel, grupo_origen)
@@ -1029,6 +1061,7 @@ with pestana_evaluar:
                                     campos_faltantes.append(f"{c_nombre} ➔ Indicador {ind_idx + 1}")
                             st.divider()
 
+            # --- FASE II: SUSTENTACIÓN ORAL ---
             num_alumnos = len(alumnos_activos)
             titulo_fase2 = f"### 🗣️ FASE II: SUSTENTACIÓN ORAL, DEFENSA E INTERROGATORIO (12 PUNTOS) — {num_alumnos} Cursante(s)"
             st.markdown(titulo_fase2)
@@ -1162,35 +1195,8 @@ with pestana_evaluar:
                         conn.commit()
                         respaldar_evaluaciones_en_disco()
                         st.session_state["grupo_evaluado_exito"] = (paralelo_sel, grupo_activo)
-                        st.success(f"✅ ¡Evaluación del {grupo_activo} guardada exitosamente!")
                         st.balloons()
                         st.rerun()
-
-    if "grupo_evaluado_exito" in st.session_state:
-        p_eval, g_eval = st.session_state["grupo_evaluado_exito"]
-        st.info(f"📌 Última evaluación registrada por usted: **{g_eval}** ({p_eval}).")
-        
-        docentes_p_check, grupos_p_check, _ = cargar_configuracion(p_eval)
-        df_cuadro_check, cant_evals_check, lista_evals_check = calcular_cuadro_consolidado_grupo(p_eval, g_eval, grupos_p_check)
-        total_tribunal_necesario = 3
-        
-        if df_cuadro_check is not None and not df_cuadro_check.empty:
-            if cant_evals_check >= total_tribunal_necesario:
-                st.success(f"🎉 ¡TODOS LOS DOCENTES ({cant_evals_check}/{total_tribunal_necesario}) HAN CULMINADO LA CALIFICACIÓN DE {g_eval}!")
-                st.markdown("#### Cuadro de Calificación Oficial:")
-                st.dataframe(df_cuadro_check, use_container_width=True)
-                
-                excel_bytes_indiv = generar_excel_cuadro_individual(df_cuadro_check, g_eval, p_eval)
-                st.download_button(
-                    label=f"📥 Descargar Cuadro Oficial en Excel (.xlsx) - {g_eval}",
-                    data=excel_bytes_indiv,
-                    file_name=f"Consolidado_{p_eval.replace(' ', '_')}_{g_eval.replace(' ', '_')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
-                    key="btn_dl_post_eval"
-                )
-            else:
-                st.warning(f"⏳ Evaluación registrada. Han calificado {cant_evals_check} de {total_tribunal_necesario} miembros del tribunal.")
 
 # =============================================================
 # --- PESTAÑA ADMINISTRADOR ---
@@ -1433,12 +1439,12 @@ with pestana_admin:
                     tema_grupo = st.text_input("Tema del Caso Analizado (ej. Análisis de Redes de Vínculos):")
                     alumnos_texto = st.text_area(
                         "Integrantes (un nombre con grado por línea):",
-                        placeholder="Cptn. Garzon Masapanta Henry Rodrigo\\nSgos. Cupueran Vallejos Juan Diego"
+                        placeholder="Cptn. Garzon Masapanta Henry Rodrigo\nSgos. Cupueran Vallejos Juan Diego"
                     )
                     btn_grupo = st.form_submit_button("➕ Registrar Grupo y Alumnos")
                     
                     if btn_grupo:
-                        alumnos_lista = [linea.strip() for linea in alumnos_texto.split("\\n") if linea.strip()]
+                        alumnos_lista = [linea.strip() for linea in alumnos_texto.split("\n") if linea.strip()]
                         if not nom_grupo.strip():
                             st.error("Debe ingresar un nombre para el grupo.")
                         elif len(alumnos_lista) == 0:
@@ -1460,7 +1466,7 @@ with pestana_admin:
                     for g_id, g_nom, g_alums_raw, g_tema in grps_actuales:
                         alums = json.loads(g_alums_raw)
                         with st.expander(f"📁 {g_nom} ({len(alums)} integrantes) - Tema: {g_tema}"):
-                            texto_actual = "\\n".join(alums)
+                            texto_actual = "\n".join(alums)
                             nuevo_tema = st.text_input("Tema del Caso:", value=g_tema, key=f"edit_tema_{g_id}")
                             nuevo_texto_alums = st.text_area(
                                 "Modificar integrantes (un nombre por línea):",
@@ -1469,7 +1475,7 @@ with pestana_admin:
                             )
                             col_guardar, col_borrar = st.columns(2)
                             if col_guardar.button("💾 Guardar Cambios", key=f"btn_save_{g_id}"):
-                                nueva_lista = [l.strip() for l in nuevo_texto_alums.split("\\n") if l.strip()]
+                                nueva_lista = [l.strip() for l in nuevo_texto_alums.split("\n") if l.strip()]
                                 cursor.execute(
                                     "UPDATE config_grupos SET alumnos_json = ?, tema_caso = ? WHERE id = ?",
                                     (json.dumps(nueva_lista), nuevo_tema.strip(), g_id)
